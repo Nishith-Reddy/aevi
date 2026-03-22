@@ -114,7 +114,19 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // ── 6. Auto-index workspace on startup ──────────────────────────
+  // ── 6. Command: Toggle Inline Completion ───────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand("telivi.toggleInlineCompletion", () => {
+      const config  = vscode.workspace.getConfiguration("telivi");
+      const current = config.get<boolean>("enableInlineCompletion", true);
+      config.update("enableInlineCompletion", !current, true);
+      vscode.window.showInformationMessage(
+        `Telivi: Inline completions ${!current ? "enabled" : "disabled"}`
+      );
+    })
+  );
+
+  // ── 7. Auto-index workspace on startup ──────────────────────────
   const folders = vscode.workspace.workspaceFolders;
   if (folders && folders.length > 0) {
     const workspacePath = folders[0].uri.fsPath;

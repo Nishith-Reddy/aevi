@@ -28,6 +28,10 @@
       {
         "command": "telivi.selectModel",
         "title": "Telivi: Select Model"
+      },
+      {
+        "command": "telivi.toggleInlineCompletion",
+        "title": "Telivi: Toggle Inline Completions"
       }
     ],
     "viewsContainers": {
