@@ -1,0 +1,93 @@
+{
+  "name": "telivi",
+  "displayName": "Telivi",
+  "description": "AI coding assistant powered by local and cloud LLMs",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.110.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "telivi.openChat",
+        "title": "Telivi: Open Chat"
+      },
+      {
+        "command": "telivi.indexWorkspace",
+        "title": "Telivi: Index Workspace"
+      },
+      {
+        "command": "telivi.selectModel",
+        "title": "Telivi: Select Model"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "telivi",
+          "title": "Telivi",
+          "icon": "$(sparkle)"
+        }
+      ]
+    },
+    "views": {
+      "telivi": [
+        {
+          "type": "webview",
+          "id": "telivi.chatView",
+          "name": "Chat"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Telivi",
+      "properties": {
+        "telivi.backendUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8765",
+          "description": "URL of the Telivi backend server"
+        },
+        "telivi.enableInlineCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable inline code completions"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.110.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.56.1",
+    "eslint": "^9.39.3",
+    "esbuild": "^0.27.3",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}

@@ -1,0 +1,19 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+rag_db/
+
+# Node
+node_modules/
+dist/
+out/
+
+# Mac
+.DS_Store
+
+# VS Code
+.vscode/settings.json
+EOF
