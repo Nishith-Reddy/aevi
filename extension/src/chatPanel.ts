@@ -4,11 +4,30 @@ import * as fs from "fs";
 import { getBackendUrl } from "./extension";
 
 export class ChatPanel implements vscode.WebviewViewProvider {
-  private view?:   vscode.WebviewView;
-  private context: vscode.ExtensionContext;
+  private view?:            vscode.WebviewView;
+  private context:          vscode.ExtensionContext;
+  private lastEditor?:      vscode.TextEditor;
+  private abortController?: AbortController;
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
+
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+      if (editor && editor.document.uri.scheme === "file") {
+        this.lastEditor = editor;
+        this.view?.webview.postMessage({
+          type:     "activeFile",
+          fileName: editor.document.fileName.split("/").pop() ?? "",
+          language: editor.document.languageId,
+          path:     editor.document.fileName,
+        });
+      }
+    });
+
+    const current = vscode.window.activeTextEditor;
+    if (current && current.document.uri.scheme === "file") {
+      this.lastEditor = current;
+    }
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
@@ -25,31 +44,43 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this.getHtml(webviewView.webview);
 
-    // Send initial state after UI loads
     setTimeout(() => {
       const enabled = vscode.workspace
         .getConfiguration("telivi")
-        .get<boolean>("enableInlineCompletion", true);
+        .get<boolean>("enableInlineCompletion", false);
       webviewView.webview.postMessage({ type: "inlineState", enabled });
 
-      // Send models to UI
+      if (this.lastEditor) {
+        webviewView.webview.postMessage({
+          type:     "activeFile",
+          fileName: this.lastEditor.document.fileName.split("/").pop() ?? "",
+          language: this.lastEditor.document.languageId,
+          path:     this.lastEditor.document.fileName,
+        });
+      }
+
+      const saved = this.context.globalState.get<{
+        messages: unknown[];
+        history:  unknown[];
+      }>("chatState");
+      if (saved) {
+        webviewView.webview.postMessage({ type: "restoreState", state: saved });
+      }
+
       this.fetchAndSendModels(webviewView.webview);
     }, 600);
 
-    // Handle all messages from React UI
     webviewView.webview.onDidReceiveMessage(async (msg) => {
-
-      // ── Chat message ──────────────────────────────────────────
       if (msg.type === "chat") {
-        await this.handleChat(msg.messages, webviewView.webview);
+        await this.handleChat(msg.messages, msg.contextFiles ?? [], webviewView.webview);
       }
-
-      // ── Fetch models ──────────────────────────────────────────
+      if (msg.type === "stop") {
+        this.abortController?.abort();
+        webviewView.webview.postMessage({ type: "streamDone" });
+      }
       if (msg.type === "getModels") {
         await this.fetchAndSendModels(webviewView.webview);
       }
-
-      // ── Select model ─────────────────────────────────────────
       if (msg.type === "selectModel") {
         await fetch(`${getBackendUrl()}/api/models/select`, {
           method:  "POST",
@@ -57,18 +88,65 @@ export class ChatPanel implements vscode.WebviewViewProvider {
           body:    JSON.stringify({ model: msg.model }),
         }).catch(() => {});
       }
-
-      // ── Toggle inline completion ──────────────────────────────
       if (msg.type === "toggleInline") {
         const config  = vscode.workspace.getConfiguration("telivi");
-        const current = config.get<boolean>("enableInlineCompletion", true);
+        const current = config.get<boolean>("enableInlineCompletion", false);
         await config.update("enableInlineCompletion", !current, true);
         webviewView.webview.postMessage({ type: "inlineState", enabled: !current });
       }
-
-      // ── Clear history ─────────────────────────────────────────
+      if (msg.type === "addFile") {
+        const uris = await vscode.window.showOpenDialog({
+          canSelectMany:  false,
+          canSelectFiles: true,
+          title:          "Add file to Telivi context",
+          filters:        { "Code files": ["py","ts","js","tsx","jsx","go","rs","java","cpp","c","md"] }
+        });
+        if (uris && uris[0]) {
+          const doc = await vscode.workspace.openTextDocument(uris[0]);
+          webviewView.webview.postMessage({
+            type:     "activeFile",
+            fileName: uris[0].fsPath.split("/").pop() ?? "",
+            language: doc.languageId,
+            path:     uris[0].fsPath,
+          });
+        }
+      }
+      if (msg.type === "agent") {
+        await this.handleAgent(msg.task, webviewView.webview);
+      }
+      if (msg.type === "applyWrite") {
+        try {
+          await fetch(`${getBackendUrl()}/api/agent/apply`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ path: msg.path, content: msg.content }),
+          });
+          webviewView.webview.postMessage({ type: "writeApplied", path: msg.path });
+        } catch {
+          webviewView.webview.postMessage({ type: "writeError", path: msg.path });
+        }
+      }
+      if (msg.type === "saveApiKeys") {
+        const keys = msg.keys as { anthropic: string; openai: string; groq: string };
+        try {
+          await fetch(`${getBackendUrl()}/api/keys`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify(keys),
+          });
+          await this.fetchAndSendModels(webviewView.webview);
+        } catch {
+          // backend not running
+        }
+      }
       if (msg.type === "clear") {
-        // history is managed in React, nothing to do here
+        this.context.globalState.update("chatState", undefined);
+      }
+      if (msg.type === "saveState") {
+        this.context.globalState.update("chatState", {
+          messages: msg.messages,
+          history:  msg.history,
+        });
       }
     });
   }
@@ -83,40 +161,98 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     }
   }
 
+  private async handleAgent(task: string, webview: vscode.Webview) {
+    const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+    const fullTask = workspacePath
+      ? `Workspace root: ${workspacePath}\n\n${task}`
+      : task;
+
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
+
+    webview.postMessage({ type: "agentStart" });
+    try {
+      const res = await fetch(`${getBackendUrl()}/api/agent`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ task: fullTask, workspace_path: workspacePath }),
+        signal,
+      });
+      if (!res.ok || !res.body) throw new Error("Backend error");
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let   buffer  = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+            webview.postMessage({ type: "agentEvent", event });
+          } catch { /* ignore */ }
+        }
+      }
+      webview.postMessage({ type: "agentDone" });
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") {
+        webview.postMessage({ type: "agentDone" });
+      } else {
+        webview.postMessage({ type: "agentError", message: "Could not reach Telivi backend. Is it running?" });
+      }
+    }
+  }
+
   private async handleChat(
     messages: { role: string; content: string }[],
+    contextFiles: { fileName: string; language: string; path: string }[],
     webview: vscode.Webview
   ) {
-    const workspacePath =
-      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
+
+    const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+    const filesWithContent = await Promise.all(
+      contextFiles.map(async f => {
+        try {
+          const doc = await vscode.workspace.openTextDocument(f.path);
+          return { ...f, code: doc.getText() };
+        } catch {
+          return { ...f, code: "" };
+        }
+      })
+    );
+    const primary     = filesWithContent[0];
+    const currentFile = primary?.path     ?? "";
+    const currentCode = primary?.code     ?? "";
+    const language    = primary?.language ?? "";
 
     webview.postMessage({ type: "streamStart" });
-
     try {
       const res = await fetch(`${getBackendUrl()}/api/chat`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ messages, workspace_path: workspacePath }),
+        body:    JSON.stringify({ messages, workspace_path: workspacePath, current_file: currentFile, current_code: currentCode, language }),
+        signal,
       });
-
       if (!res.ok || !res.body) throw new Error("Backend error");
-
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        webview.postMessage({ type: "streamChunk", chunk });
+        webview.postMessage({ type: "streamChunk", chunk: decoder.decode(value, { stream: true }) });
       }
-
       webview.postMessage({ type: "streamDone" });
-    } catch {
-      webview.postMessage({
-        type:    "streamError",
-        message: "Could not reach Telivi backend. Is it running?",
-      });
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") {
+        webview.postMessage({ type: "streamDone" });
+      } else {
+        webview.postMessage({ type: "streamError", message: "Could not reach Telivi backend. Is it running?" });
+      }
     }
   }
 
@@ -139,7 +275,6 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       html = html.replace(`/assets/${cssFile}`, uri.toString());
     }
 
-    // CSP — no direct network access needed, extension proxies all API calls
     const csp = `<meta http-equiv="Content-Security-Policy" content="
       default-src 'none';
       style-src ${webview.cspSource} 'unsafe-inline';

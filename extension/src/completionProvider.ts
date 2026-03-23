@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { getBackendUrl } from "./extension";
 
 // How long to wait after the user stops typing before sending a request
-const DEBOUNCE_MS = 700;
+const DEBOUNCE_MS = 1000; // increased to reduce aggressive triggering
 
 // Debug output channel — shows logs in VS Code Output panel
 const output = vscode.window.createOutputChannel("Telivi");
@@ -89,8 +89,19 @@ export class CompletionProvider
       }
 
       const data = await res.json() as { completion: string };
-      const completion = data.completion?.trim();
+      let completion = data.completion?.trim();
       output.appendLine(`[completion] got: "${completion}"`);
+
+      if (!completion) return null;
+
+      // Strip the current line content if the model echoed it back
+      const currentLineText = document.lineAt(position.line).text.trim();
+      if (completion.startsWith(currentLineText)) {
+        completion = completion.slice(currentLineText.length).trimStart();
+      }
+
+      // Strip markdown backticks if model added them
+      completion = completion.replace(/^```[\w]*\n?/, "").replace(/\n?```$/, "").trim();
 
       if (!completion) return null;
 

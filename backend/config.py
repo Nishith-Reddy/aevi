@@ -1,10 +1,12 @@
+# Telivi configuration
 from pydantic_settings import BaseSettings
 from typing import Optional
 
 
 class Settings(BaseSettings):
-    # --- Default model (uses local Ollama by default, no API key needed) ---
-    default_model: str = "ollama/codellama"
+    # --- LLM settings ---
+    default_model:    str  = "ollama/qwen3.5:9b"   # used for chat + agent
+    enable_thinking:  bool = False
 
     # --- Optional API keys (leave empty if using Ollama) ---
     anthropic_api_key: Optional[str] = None
@@ -16,8 +18,8 @@ class Settings(BaseSettings):
 
     # --- RAG settings ---
     rag_db_path:    str = "./rag_db"
-    rag_chunk_size: int = 400
-    rag_top_k:      int = 5
+    rag_chunk_size: int = 100    # smaller = each function gets its own chunk
+    rag_top_k:      int = 4
 
     # --- Server settings ---
     host: str = "127.0.0.1"

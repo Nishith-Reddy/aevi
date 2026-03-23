@@ -3,30 +3,36 @@ import lancedb
 from sentence_transformers import SentenceTransformer
 from config import settings
 
-# Load the embedding model once at startup (runs locally, no API key needed)
+# Load embedding model once at startup
 _embed_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# Cache open DB connections so we don't reconnect on every request
+# Cache open DB connections
 _dbs: dict[str, lancedb.DBConnection] = {}
 
 # Only index these file types
 SUPPORTED_EXTENSIONS = {
     ".py", ".ts", ".js", ".tsx", ".jsx",
     ".go", ".rs", ".java", ".cpp", ".c",
-    ".md", ".txt", ".json", ".yaml", ".toml"
+    ".md", ".txt", ".yaml", ".toml"
 }
 
 # Folders to skip when indexing
 SKIP_DIRS = {
     ".git", "node_modules", "__pycache__",
-    ".venv", "venv", "dist", "build", ".next"
+    ".venv", "venv", "dist", "build", ".next",
+    "out", "coverage", ".turbo"
+}
+
+# Files to skip
+SKIP_FILES = {
+    "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+    "uv.lock", "poetry.lock", "Cargo.lock"
 }
 
 
 def _get_db(workspace: str) -> lancedb.DBConnection:
     """Get or create a LanceDB connection for a workspace."""
     if workspace not in _dbs:
-        # Each workspace gets its own folder inside rag_db/
         db_path = os.path.join(
             settings.rag_db_path,
             workspace.replace("/", "_").strip("_")
@@ -35,7 +41,7 @@ def _get_db(workspace: str) -> lancedb.DBConnection:
     return _dbs[workspace]
 
 
-def _chunk_text(text: str, chunk_size: int = 400) -> list[str]:
+def _chunk_text(text: str, chunk_size: int = 100) -> list[str]:
     """
     Split file content into overlapping chunks by word count.
     Overlap helps the model get context across chunk boundaries.
@@ -71,6 +77,9 @@ async def index_workspace(workspace_path: str) -> int:
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
 
         for fname in files:
+            # Skip lock files and other noise
+            if fname in SKIP_FILES:
+                continue
             ext = os.path.splitext(fname)[1]
             if ext not in SUPPORTED_EXTENSIONS:
                 continue
@@ -82,7 +91,6 @@ async def index_workspace(workspace_path: str) -> int:
             except Exception:
                 continue
 
-            # Skip empty files
             if not content.strip():
                 continue
 
@@ -97,7 +105,6 @@ async def index_workspace(workspace_path: str) -> int:
 
     if records:
         tbl_name = "code_chunks"
-        # Drop old index and rebuild fresh
         if tbl_name in db.table_names():
             db.drop_table(tbl_name)
         db.create_table(tbl_name, records)

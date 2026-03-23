@@ -62,8 +62,8 @@
         },
         "telivi.enableInlineCompletion": {
           "type": "boolean",
-          "default": true,
-          "description": "Enable inline code completions"
+          "default": false,
+          "description": "(Beta) Enable inline code completions. Works best with codellama or qwen2.5-coder models."
         }
       }
     }

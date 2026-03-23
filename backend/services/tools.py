@@ -67,9 +67,9 @@ async def run_command(command: str) -> str:
             f"Telivi only runs read-only commands."
         )
 
-    # Also block output redirection
-    if ">" in command or ">>" in command:
-        return "[Blocked] Output redirection is not allowed."
+    # Block output redirection to files but allow stderr redirect
+    if ">>" in command or ("> " in command and "2>&1" not in command):
+        return "[Blocked] Output redirection to files is not allowed."
 
     try:
         result = subprocess.run(
@@ -77,15 +77,24 @@ async def run_command(command: str) -> str:
             shell=True,
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=30  # increased from 10
         )
         stdout = result.stdout[:MAX_OUTPUT_BYTES]
         stderr = result.stderr[:500]
+
+        # Filter out noise from virtual envs and dependencies
+        noise_dirs = [".venv", "node_modules", "__pycache__", ".git"]
+        filtered_lines = [
+            line for line in stdout.splitlines()
+            if not any(nd in line for nd in noise_dirs)
+        ]
+        stdout = "\n".join(filtered_lines)
+
         output = stdout
         if stderr:
             output += f"\n[stderr] {stderr}"
         return output or "[No output]"
     except subprocess.TimeoutExpired:
-        return "[Error] Command timed out after 10 seconds."
+        return "[Error] Command timed out after 30 seconds."
     except Exception as e:
         return f"[Error running command] {e}"

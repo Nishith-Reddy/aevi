@@ -2,7 +2,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import completion, chat, agent, models
-from services.rag import index_workspace
+from services.rag import index_workspace, retrieve_context
 from config import settings
 
 app = FastAPI(
@@ -57,10 +57,28 @@ async def index(body: dict):
     }
 
 
+@app.post("/api/debug/retrieve")
+async def debug_retrieve(body: dict):
+    """
+    Debug endpoint — shows exactly what chunks RAG retrieves for a query.
+    Use this to tune chunk size and top_k settings.
+    """
+    query     = body.get("query", "")
+    workspace = body.get("workspace_path", "")
+    if not query or not workspace:
+        return {"error": "query and workspace_path are required"}
+
+    context = await retrieve_context(query, workspace)
+    chunks  = context.split("\n\n---\n\n") if context else []
+    return {
+        "query":        query,
+        "chunks_found": len(chunks),
+        "chunks":       chunks,
+    }
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host=settings.host,
         port=settings.port,
-        reload=True,   # auto-restart on file changes during development
+        reload=True,
     )

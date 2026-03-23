@@ -47,7 +47,7 @@ async def list_models():
                 size_bytes = m.get("size", 0)
                 size_gb    = f"{size_bytes / 1e9:.1f} GB"
                 local_models.append({
-                    "name":   f"ollama/{m['name'].split(':')[0]}",
+                    "name":   f"ollama/{m['name']}",
                     "size":   size_gb,
                     "source": "ollama",
                 })
@@ -81,6 +81,18 @@ async def list_models():
     }
 
 
+@router.post("/models/thinking")
+async def toggle_thinking(body: dict):
+    """
+    Toggle thinking mode on/off.
+    Only works with models that support it (Qwen3, Qwen3.5, etc.)
+
+    Example request:
+        { "enabled": true }
+    """
+    enabled = body.get("enabled", False)
+    settings.enable_thinking = enabled
+    return { "thinking": settings.enable_thinking }
 @router.post("/models/select")
 async def select_model(body: dict):
     """

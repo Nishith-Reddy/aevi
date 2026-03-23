@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from services.llm import complete
+from config import settings
 
 router = APIRouter()
 
@@ -13,14 +14,10 @@ class CompletionRequest(BaseModel):
 
 
 # System prompt — tells the LLM to return raw code only
-SYSTEM_PROMPT = """You are an expert code completion engine.
-Your job is to complete the code at the cursor position.
-Rules:
-- Return ONLY the raw code to insert — absolutely no markdown, no backticks, no code fences
-- Never wrap your response in ```python or ``` blocks
-- Match the indentation and style of the surrounding code
-- Keep completions short and focused (1-10 lines max)
-- If unsure, return an empty string rather than guessing wildly"""
+SYSTEM_PROMPT = """You are a code completion engine.
+Complete the code at the cursor. Return ONLY the completion text — no explanations, no markdown, no backticks.
+Even if the completion is just one word or one line, return it.
+Never return empty — always suggest something reasonable."""
 
 
 def strip_markdown(text: str) -> str:
@@ -90,7 +87,7 @@ async def inline_complete(req: CompletionRequest):
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user",   "content": prompt},
         ],
-        model=req.model,
+        model=req.model,  # None = uses active model from model picker
         max_tokens=256,
     )
 

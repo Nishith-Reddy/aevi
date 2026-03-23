@@ -47,6 +47,17 @@ body {
 }
 .clear-btn:hover { background: var(--vscode-toolbar-hoverBackground); }
 
+.beta-badge {
+  font-size: 9px;
+  background: var(--vscode-inputValidation-warningBackground);
+  color: var(--vscode-inputValidation-warningForeground);
+  border: 0.5px solid var(--vscode-inputValidation-warningBorder);
+  border-radius: 3px;
+  padding: 1px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* ── Inline toggle ── */
 .inline-toggle {
   display: flex;
@@ -87,7 +98,26 @@ input:checked + .slider:before { transform: translateX(13px); }
   padding: 6px 10px;
   border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
   flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
+
+.refresh-btn {
+  background: none;
+  border: 0.5px solid var(--vscode-input-border);
+  color: var(--vscode-descriptionForeground);
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.refresh-btn:hover { color: var(--vscode-foreground); border-color: var(--vscode-focusBorder); }
 
 .model-select {
   width: 100%;
@@ -204,6 +234,120 @@ input:checked + .slider:before { transform: translateX(13px); }
   50%       { opacity: 0; }
 }
 
+/* ── Active file indicator ── */
+.context-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+
+.active-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  background: var(--vscode-editor-inactiveSelectionBackground);
+  border: 0.5px solid var(--vscode-input-border);
+  border-radius: 4px;
+  font-size: 11px;
+  max-width: 180px;
+  overflow: hidden;
+}
+
+.active-file-icon { font-size: 11px; flex-shrink: 0; }
+
+.active-file-name {
+  color: var(--vscode-textLink-foreground);
+  font-family: var(--vscode-editor-font-family);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.active-file-lang {
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  flex-shrink: 0;
+  background: var(--vscode-input-background);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.remove-file-btn {
+  background: none;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0 2px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.remove-file-btn:hover { color: var(--vscode-errorForeground); }
+
+.add-file-btn {
+  background: none;
+  border: 0.5px dashed var(--vscode-input-border);
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.add-file-btn:hover {
+  border-color: var(--vscode-focusBorder);
+  color: var(--vscode-foreground);
+}
+
+/* ── Agent confirmation UI ── */
+.confirm-write {
+  margin-top: 10px;
+  border: 1px solid var(--vscode-inputValidation-warningBorder);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.confirm-title {
+  padding: 8px 10px;
+  font-size: 12px;
+  background: var(--vscode-inputValidation-warningBackground);
+  color: var(--vscode-inputValidation-warningForeground);
+  margin: 0;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--vscode-editor-background);
+}
+
+.confirm-btn {
+  padding: 5px 14px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--vscode-font-family);
+}
+
+.confirm-btn.apply {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+.confirm-btn.apply:hover { background: var(--vscode-button-hoverBackground); }
+
+.confirm-btn.reject {
+  background: var(--vscode-inputValidation-errorBackground);
+  color: var(--vscode-errorForeground);
+  border: 1px solid var(--vscode-inputValidation-errorBorder);
+}
+.confirm-btn.reject:hover { opacity: 0.8; }
+
 /* ── Mode selector ── */
 .mode-selector {
   display: flex;
@@ -265,5 +409,18 @@ input:checked + .slider:before { transform: translateX(13px); }
   font-size: 14px;
   flex-shrink: 0;
 }
+.stop-btn {
+  background: var(--vscode-inputValidation-errorBackground);
+  color: var(--vscode-errorForeground);
+  border: 1px solid var(--vscode-inputValidation-errorBorder);
+  border-radius: 4px;
+  padding: 0 12px;
+  height: 34px;
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.stop-btn:hover { opacity: 0.8; }
+
 .send-btn:hover    { background: var(--vscode-button-hoverBackground); }
 .send-btn:disabled { opacity: 0.5; cursor: default; }

@@ -8,24 +8,23 @@ router = APIRouter()
 
 
 class ChatRequest(BaseModel):
-    messages:       list[dict]       # full conversation history [{role, content}]
-    workspace_path: str      = ""    # if set, RAG context is injected
+    messages:       list[dict]
+    workspace_path: str       = ""
+    current_file:   str       = ""   # path of the active file
+    current_code:   str       = ""   # full content of active file
+    language:       str       = ""   # programming language
     model:          str | None = None
 
 
 SYSTEM_PROMPT = """You are Telivi, an expert AI coding assistant built into VS Code.
-You help developers with:
-- Understanding and explaining code
-- Debugging and fixing errors
-- Refactoring and improving code quality
-- Writing tests and documentation
-- Answering technical questions
+You help developers with understanding, debugging, and improving code.
 
-Guidelines:
-- Be concise and direct
+IMPORTANT RULES:
+- When relevant code from the workspace is provided, always base your answer on that code
+- Never make up or guess what code does — only describe what you can actually see
 - Always use markdown code blocks when showing code
-- If you're unsure about something, say so
-- Reference specific files or line numbers when relevant"""
+- Be concise and specific
+- If you are not sure about something, say so clearly"""
 
 
 @router.post("/chat")
@@ -45,28 +44,30 @@ async def chat(req: ChatRequest):
     """
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-    # Inject RAG context if workspace is provided
-    if req.workspace_path and req.messages:
-        # Get the last user message to use as the search query
-        last_user_msg = next(
-            (m["content"] for m in reversed(req.messages) if m["role"] == "user"),
-            ""
-        )
+    # Inject current file as context directly into the first user message
+    # Small local models follow user messages better than system prompts
+    if req.current_code and req.current_file:
+        lines     = req.current_code.splitlines()
+        code      = "\n".join(lines[:200])
+        truncated = len(lines) > 200
+        lang      = req.language or "plaintext"
+        fname     = req.current_file.split("/")[-1]
 
-        context = await retrieve_context(last_user_msg, req.workspace_path)
-
-        if context:
-            messages.append({
-                "role": "system",
+        # Get the last user message and prepend the file context to it
+        augmented = list(req.messages)
+        if augmented and augmented[-1]["role"] == "user":
+            augmented[-1] = {
+                "role": "user",
                 "content": (
-                    "Here is relevant code from the user's workspace. "
-                    "Use it to give accurate, specific answers:\n\n"
-                    f"{context}"
+                    f"I have this file open (`{fname}`):\n\n"
+                    f"```{lang}\n{code}\n```"
+                    + ("\n\n[truncated]" if truncated else "")
+                    + f"\n\nQuestion: {augmented[-1]['content']}"
                 )
-            })
-
-    # Add the full conversation history
-    messages.extend(req.messages)
+            }
+        messages.extend(augmented)
+    else:
+        messages.extend(req.messages)
 
     async def generate():
         async for chunk in stream_completion(messages, model=req.model):

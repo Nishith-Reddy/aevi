@@ -118,11 +118,15 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand("telivi.toggleInlineCompletion", () => {
       const config  = vscode.workspace.getConfiguration("telivi");
-      const current = config.get<boolean>("enableInlineCompletion", true);
+      const current = config.get<boolean>("enableInlineCompletion", false);
       config.update("enableInlineCompletion", !current, true);
-      vscode.window.showInformationMessage(
-        `Telivi: Inline completions ${!current ? "enabled" : "disabled"}`
-      );
+      if (!current) {
+        vscode.window.showInformationMessage(
+          "Telivi: Inline completions enabled (Beta). Works best with codellama or qwen2.5-coder."
+        );
+      } else {
+        vscode.window.showInformationMessage("Telivi: Inline completions disabled.");
+      }
     })
   );
 
