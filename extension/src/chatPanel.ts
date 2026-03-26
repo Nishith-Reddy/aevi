@@ -22,15 +22,43 @@ export class ChatPanel implements vscode.WebviewViewProvider {
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
 
-    vscode.window.onDidChangeActiveTextEditor(editor => {
+    vscode.window.onDidChangeActiveTextEditor(async editor => {
       if (editor && editor.document.uri.scheme === "file") {
+        const prevPath = this.lastEditor?.document.fileName ?? "";
         this.lastEditor = editor;
+        const newPath   = editor.document.fileName;
+
         this.view?.webview.postMessage({
-          type:     "activeFile",
-          fileName: editor.document.fileName.split("/").pop() ?? "",
+          type:     "switchFile",
+          fileName: newPath.split("/").pop() ?? "",
           language: editor.document.languageId,
-          path:     editor.document.fileName,
+          path:     newPath,
         });
+
+        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+        if (!workspacePath) return;
+
+        // Remove previous auto-file chunks from vector store
+        if (prevPath && prevPath !== newPath) {
+          fetch(`${getBackendUrl()}/api/remove-file`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ file_path: prevPath, workspace_path: workspacePath }),
+          }).catch(() => {});
+        }
+
+        // Index the new file immediately so RAG has it
+        fetch(`${getBackendUrl()}/api/index-file`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ file_path: newPath, workspace_path: workspacePath }),
+        }).catch(() => {});
+      }
+    });
+
+    vscode.workspace.onDidCloseTextDocument(doc => {
+      if (doc.uri.scheme === "file") {
+        this.view?.webview.postMessage({ type: "closeFile", path: doc.fileName });
       }
     });
 
@@ -92,7 +120,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
       if (this.lastEditor) {
         webviewView.webview.postMessage({
-          type:     "activeFile",
+          type:     "switchFile",
           fileName: this.lastEditor.document.fileName.split("/").pop() ?? "",
           language: this.lastEditor.document.languageId,
           path:     this.lastEditor.document.fileName,

@@ -150,6 +150,54 @@ async def list_gemini_models():
         return {"models": [], "error": str(e)}
 
 
+@app.post("/api/index-file")
+async def index_file(body: dict):
+    """
+    Index a single file into the vector store.
+    Called when the user switches to a new file in VS Code.
+    """
+    file_path   = body.get("file_path", "").strip()
+    workspace   = body.get("workspace_path", "").strip()
+    if not file_path or not workspace:
+        return {"error": "file_path and workspace_path are required"}
+
+    from services.rag import _get_db, _embed_model, _chunk_text, SUPPORTED_EXTENSIONS
+    import os
+
+    ext = os.path.splitext(file_path)[1]
+    if ext not in SUPPORTED_EXTENSIONS:
+        return {"status": "skipped", "reason": "unsupported extension"}
+
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+    except Exception as e:
+        return {"error": str(e)}
+
+    if not content.strip():
+        return {"status": "skipped", "reason": "empty file"}
+
+    db      = _get_db(workspace)
+    records = []
+    for i, chunk in enumerate(_chunk_text(content)):
+        vector = _embed_model.encode(chunk).tolist()
+        records.append({"path": file_path, "chunk_id": i, "text": chunk, "vector": vector})
+
+    tbl_name = "code_chunks"
+    if tbl_name not in db.table_names():
+        db.create_table(tbl_name, records)
+    else:
+        tbl = db.open_table(tbl_name)
+        # Remove stale chunks for this file first, then add fresh ones
+        try:
+            tbl.delete(f"path = '{file_path}'")
+        except Exception:
+            pass
+        tbl.add(records)
+
+    return {"status": "indexed", "file": file_path, "chunks": len(records)}
+
+
 @app.post("/api/index")
 async def index(body: dict):
     workspace = body.get("workspace_path", "").strip()

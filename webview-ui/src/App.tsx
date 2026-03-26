@@ -67,7 +67,7 @@ export default function App() {
   const [models,       setModels]       = useState<ModelsData>({ active: "", local: [], api: [] });
   const [inline,       setInline]       = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [contextFiles, setContextFiles] = useState<{ fileName: string; language: string; path: string }[]>([]);
+  const [contextFiles, setContextFiles] = useState<{ fileName: string; language: string; path: string; pinned?: boolean }[]>([]);
   const [saveStatus,   setSaveStatus]   = useState<"idle" | "saving" | "saved">("idle");
 
   // Settings state
@@ -129,9 +129,28 @@ export default function App() {
         vscode?.postMessage({ type: "getModels" });
       }
 
-      if (msg.type === "activeFile") {
+      if (msg.type === "switchFile") {
+        // Switching tabs — replace the single auto-tracked file
+        // but keep any manually pinned files (added via + Add file)
         const f = { fileName: msg.fileName as string, language: msg.language as string, path: msg.path as string };
+        setContextFiles(prev => {
+          // Remove previous auto file (index 0 if it wasn't manually pinned)
+          // Manually pinned files have been explicitly added so we keep them
+          // Convention: auto file is always at index 0 if present and not pinned
+          const pinned = prev.filter(x => x.pinned);
+          return [{ ...f, pinned: false }, ...pinned];
+        });
+      }
+
+      if (msg.type === "activeFile") {
+        // Manually added via + Add file button — pin it
+        const f = { fileName: msg.fileName as string, language: msg.language as string, path: msg.path as string, pinned: true };
         setContextFiles(prev => prev.find(x => x.path === f.path) ? prev : [...prev, f]);
+      }
+
+      if (msg.type === "closeFile") {
+        // File closed in VS Code — remove from context if present
+        setContextFiles(prev => prev.filter(x => x.path !== (msg.path as string)));
       }
       if (msg.type === "models")      { setModels(msg.data as ModelsData); }
       if (msg.type === "inlineState") { setInline(msg.enabled as boolean); }
@@ -248,14 +267,14 @@ export default function App() {
     return () => window.removeEventListener("message", handler);
   }, []);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  const isProgrammaticScroll = useRef(false);
 
-  // Only auto-scroll if user hasn't scrolled up
   useEffect(() => {
     const el = messagesRef.current;
     if (!el) return;
     const onScroll = () => {
-      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      if (isProgrammaticScroll.current) return;
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
       userScrolled.current = !atBottom;
     };
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -263,9 +282,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!userScrolled.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+    if (userScrolled.current) return;
+    const el = messagesRef.current;
+    if (!el) return;
+    isProgrammaticScroll.current = true;
+    el.scrollTop = el.scrollHeight;
+    // Reset flag after the scroll event has fired
+    requestAnimationFrame(() => { isProgrammaticScroll.current = false; });
   }, [messages]);
 
   function refreshModels() { vscode?.postMessage({ type: "getModels" }); }
