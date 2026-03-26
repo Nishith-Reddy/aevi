@@ -23,9 +23,10 @@ class Settings(BaseSettings):
     vllm_base_url:      str = ""
 
     # --- RAG settings ---
-    rag_db_path:    str = "./rag_db"
-    rag_chunk_size: int = 100
-    rag_top_k:      int = 4
+    rag_db_path:      str = "./rag_db"
+    rag_chunk_size:   int = 100
+    rag_top_k:        int = 4
+    rag_max_files:    int = 200   # max files to index per workspace
 
     # --- Server settings ---
     host: str = "127.0.0.1"

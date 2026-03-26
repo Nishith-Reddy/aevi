@@ -108,6 +108,13 @@ async def _fetch_groq_models() -> list[dict]:
     key = settings.groq_api_key
     if not key:
         return []
+    # Groq model ids that are NOT chat/text models — skip these
+    GROQ_SKIP = {"whisper-large-v3", "whisper-large-v3-turbo", "distil-whisper-large-v3-en"}
+    GROQ_SKIP_CONTAINS = {
+        "whisper", "tts", "guard", "safeguard",
+        "embed", "vision", "orpheus", "allam",
+        "compound", "canopylabs",
+    }
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
             r = await client.get(
@@ -118,12 +125,12 @@ async def _fetch_groq_models() -> list[dict]:
             data = r.json()
             models = []
             for m in data.get("data", []):
-                mid = m["id"]
-                # Some Groq models already have a provider prefix (e.g. openai/gpt-oss-20b,
-                # meta-llama/llama-4-scout-17b-16e-instruct). Pass them through as-is to
-                # LiteLLM under the groq/ namespace: groq/openai/gpt-oss-20b works correctly.
-                name = f"groq/{mid}"
-                models.append({"name": name, "source": "groq"})
+                mid = m["id"].lower()
+                if mid in GROQ_SKIP:
+                    continue
+                if any(k in mid for k in GROQ_SKIP_CONTAINS):
+                    continue
+                models.append({"name": f"groq/{m['id']}", "source": "groq"})
             return models
     except Exception:
         return []
@@ -141,6 +148,7 @@ async def _fetch_gemini_models() -> list[dict]:
             )
             r.raise_for_status()
             data = r.json()
+            GEMINI_SKIP_CONTAINS = {"tts", "embed", "aqa", "retrieval", "imagen", "vision-only"}
             return [
                 {
                     "name":   f"gemini/{m['name'].replace('models/', '')}",
@@ -149,6 +157,7 @@ async def _fetch_gemini_models() -> list[dict]:
                 for m in data.get("models", [])
                 if "generateContent" in m.get("supportedGenerationMethods", [])
                 and "gemini" in m.get("name", "")
+                and not any(k in m["name"].lower() for k in GEMINI_SKIP_CONTAINS)
             ]
     except Exception:
         return []

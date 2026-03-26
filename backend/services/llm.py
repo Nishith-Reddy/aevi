@@ -61,8 +61,11 @@ async def stream_completion(messages: list[dict], model: str | None = None):
     """Stream response chunks for any LiteLLM-supported provider."""
     mdl = _resolve_model(model or "")
 
-    # Ensure the Gemini key is set in the environment at call time
-    # (it may have been injected after module load via /api/keys)
+    # ollama/ hits /api/generate (no streaming tools); ollama_chat/ hits /api/chat
+    if mdl.startswith("ollama/"):
+        mdl = mdl.replace("ollama/", "ollama_chat/", 1)
+
+    # Ensure provider keys are set at call time (may have been injected after module load)
     if mdl.startswith("gemini/") and settings.gemini_api_key:
         os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
 
@@ -81,6 +84,9 @@ async def stream_completion(messages: list[dict], model: str | None = None):
 async def complete(messages: list[dict], model: str | None = None, max_tokens: int = 256) -> str:
     """Single non-streaming completion — used for inline suggestions."""
     mdl = _resolve_model(model or "")
+
+    if mdl.startswith("ollama/"):
+        mdl = mdl.replace("ollama/", "ollama_chat/", 1)
 
     if mdl.startswith("gemini/") and settings.gemini_api_key:
         os.environ["GEMINI_API_KEY"] = settings.gemini_api_key

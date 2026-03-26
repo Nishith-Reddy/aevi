@@ -181,7 +181,6 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             headers: { "Content-Type": "application/json" },
             body:    JSON.stringify({ path: msg.path, content: msg.content }),
           });
-
           webviewView.webview.postMessage({ type: "writeApplied", path: msg.path });
 
           if (savedState) {
@@ -193,7 +192,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
           } else {
             webviewView.webview.postMessage({ type: "agentDone" });
           }
-        } catch {
+        } catch (e) {
+          console.error("[Telivi] applyWrite failed:", e);
           webviewView.webview.postMessage({ type: "writeError", path: msg.path });
           webviewView.webview.postMessage({ type: "agentDone" });
         }
@@ -243,6 +243,15 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
       if (msg.type === "clear") {
         this.context.globalState.update("chatState", undefined);
+        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+        const currentFile   = this.lastEditor?.document.fileName ?? "";
+        if (workspacePath) {
+          fetch(`${getBackendUrl()}/api/clear-index`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ workspace_path: workspacePath, keep_file: currentFile }),
+          }).catch(() => {});
+        }
       }
 
       if (msg.type === "saveState") {
@@ -343,7 +352,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       if (e instanceof Error && e.name === "AbortError") {
         webview.postMessage({ type: "agentDone" });
       } else {
+        console.error("[Telivi] handleAgent error:", e);
         webview.postMessage({ type: "agentError", message: "Could not reach Telivi backend. Is it running?" });
+        webview.postMessage({ type: "agentDone" });
       }
     }
   }

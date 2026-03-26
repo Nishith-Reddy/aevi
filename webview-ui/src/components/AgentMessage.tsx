@@ -257,7 +257,7 @@ export default function AgentMessage({ steps, loading, vscode }: Props) {
         }
         return null;
       })}
-      {loading && <span className="cursor"> ▋</span>}
+      {loading && <span style={{ opacity: 0.5, fontSize: 12 }}>▋</span>}
     </div>
   );
 }

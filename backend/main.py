@@ -53,18 +53,36 @@ async def set_keys(body: dict):
         ]
     }
     """
-    # --- API keys ---
+    # --- API keys — set or clear depending on whether a value was provided ---
     if body.get("anthropic"):
         settings.anthropic_api_key = body["anthropic"]
         os.environ["ANTHROPIC_API_KEY"] = body["anthropic"]
+    else:
+        settings.anthropic_api_key = None
+        os.environ.pop("ANTHROPIC_API_KEY", None)
 
     if body.get("openai"):
         settings.openai_api_key = body["openai"]
         os.environ["OPENAI_API_KEY"] = body["openai"]
+    else:
+        settings.openai_api_key = None
+        os.environ.pop("OPENAI_API_KEY", None)
 
     if body.get("groq"):
         settings.groq_api_key = body["groq"]
         os.environ["GROQ_API_KEY"] = body["groq"]
+    else:
+        settings.groq_api_key = None
+        os.environ.pop("GROQ_API_KEY", None)
+
+    if body.get("gemini"):
+        settings.gemini_api_key = body["gemini"]
+        os.environ["GEMINI_API_KEY"] = body["gemini"]
+        print(f"[keys] Gemini API key set ({len(body['gemini'])} chars)")
+    else:
+        settings.gemini_api_key = None
+        os.environ.pop("GEMINI_API_KEY", None)
+        print("[keys] Gemini API key cleared")
 
     # --- Local provider URLs ---
     providers: list[dict] = body.get("providers", [])
@@ -103,6 +121,35 @@ async def set_keys(body: dict):
     return {"status": "ok"}
 
 
+@app.get("/api/gemini/models")
+async def list_gemini_models():
+    """
+    Fetch available Gemini models for the stored API key.
+    Returns only generative text models that support generateContent.
+    """
+    import httpx
+    key = settings.gemini_api_key
+    if not key:
+        return {"models": [], "error": "No Gemini API key configured"}
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                params={"key": key},
+            )
+            r.raise_for_status()
+            data = r.json()
+            models = [
+                m["name"].replace("models/", "")
+                for m in data.get("models", [])
+                if "generateContent" in m.get("supportedGenerationMethods", [])
+                and "gemini" in m.get("name", "")
+            ]
+            return {"models": models}
+    except Exception as e:
+        return {"models": [], "error": str(e)}
+
+
 @app.post("/api/index")
 async def index(body: dict):
     workspace = body.get("workspace_path", "").strip()
@@ -132,6 +179,36 @@ async def retrieve(body: dict):
     context = await retrieve_context(query, workspace)
     chunks  = context.split("\n\n---\n\n") if context else []
     return {"chunks_found": len(chunks), "chunks": chunks}
+
+
+@app.post("/api/clear-index")
+async def clear_index(body: dict):
+    """
+    Clear the vector DB for a workspace, optionally keeping one file's chunks.
+    Called when the user clicks Clear in the chat UI.
+    """
+    workspace  = body.get("workspace_path", "").strip()
+    keep_file  = body.get("keep_file", "").strip()
+    if not workspace:
+        return {"error": "workspace_path is required"}
+
+    from services.rag import _get_db, _dbs
+    try:
+        db = _get_db(workspace)
+        if "code_chunks" not in db.table_names():
+            return {"status": "ok", "workspace": workspace, "kept": keep_file}
+
+        if keep_file:
+            # Delete everything except chunks belonging to the current file
+            tbl = db.open_table("code_chunks")
+            tbl.delete(f"path != '{keep_file}'")
+        else:
+            db.drop_table("code_chunks")
+            _dbs.pop(workspace, None)
+
+        return {"status": "ok", "workspace": workspace, "kept": keep_file or None}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.post("/api/remove-file")

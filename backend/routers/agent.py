@@ -3,6 +3,7 @@ import difflib
 import os
 import re
 import tempfile
+import asyncio
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -43,7 +44,20 @@ TOOLS = [
                 "properties": {
                     "workspace_path": {"type": "string"},
                     "task":           {"type": "string", "description": "The original user task"},
-                    "steps":          {"type": "array",  "description": "List of steps: [{id, desc, file, status}]"},
+                    "steps": {
+                        "type": "array",
+                        "description": "List of steps: [{id, desc, file, status}]",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id":     {"type": "integer"},
+                                "desc":   {"type": "string"},
+                                "file":   {"type": "string"},
+                                "status": {"type": "string"},
+                            },
+                            "required": ["id", "desc", "file", "status"],
+                        },
+                    },
                 },
                 "required": ["workspace_path", "task", "steps"],
             },
@@ -313,53 +327,70 @@ def get_model(requested: str | None) -> str:
     return m
 
 
+def _friendly_limit_message(err_str: str) -> str:
+    low = err_str.lower()
+    is_quota = any(k in low for k in ("daily", "quota", "exceeded your current", "resource_exhausted", "billing", "insufficient_quota"))
+    if is_quota:
+        return (
+            "⛔ **Daily quota exhausted.** You've used up your free-tier or plan limit "
+            "and cannot make more requests today. Please check your billing/quota at the "
+            "provider dashboard, upgrade your plan, or switch to a different model."
+        )
+    return "⚠️ **Rate limit hit.** Too many requests per minute — please wait a moment and try again."
+
+
+def _serialize_messages_for_api(messages: list[dict]) -> list[dict]:
+    """Groq/OpenAI require tool_calls to have type='function' and arguments as a JSON string."""
+    out = []
+    for msg in messages:
+        if msg.get("role") == "assistant" and msg.get("tool_calls"):
+            tcs = []
+            for tc in msg["tool_calls"]:
+                args = tc["function"]["arguments"]
+                tcs.append({
+                    "id":   tc.get("id", "call_0"),
+                    "type": "function",
+                    "function": {
+                        "name":      tc["function"]["name"],
+                        "arguments": json.dumps(args) if isinstance(args, dict) else (args or "{}"),
+                    },
+                })
+            out.append({**msg, "tool_calls": tcs})
+        else:
+            out.append(msg)
+    return out
+
+
 async def _call_llm(model: str, messages: list[dict]) -> dict:
     """
     Call the appropriate backend and return a normalised message dict:
         { "role": "assistant", "content": "...", "tool_calls": [...] }
 
-    Ollama models use direct HTTP — LiteLLM's Ollama wrapper drops tool
-    calls silently for many models. All other providers go through LiteLLM.
+    Ollama uses direct HTTP (LiteLLM's ollama/ drops tool calls silently).
+    All other providers go through LiteLLM with ollama_chat/ for local Ollama.
     """
     from config import settings
 
     prefix   = model.split("/")[0] if "/" in model else ""
     resolved = model if prefix in KNOWN_PREFIXES else _resolve_model(model)
+
+    # ollama/ hits /api/generate (no tools); ollama_chat/ hits /api/chat (tools work)
+    if resolved.startswith("ollama/"):
+        resolved = resolved.replace("ollama/", "ollama_chat/", 1)
+
     print(f"[agent] _call_llm: model={model!r} → resolved={resolved!r}")
 
-    # ── Ollama: direct HTTP ──────────────────────────────────────────────────
-    if prefix == "ollama":
-        import httpx
-        ollama_model = model.replace("ollama/", "", 1).strip()
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(
-                f"{settings.ollama_base_url}/api/chat",
-                json={
-                    "model":    ollama_model,
-                    "messages": messages,
-                    "tools":    TOOLS,
-                    "stream":   False,
-                    "think":    False,
-                },
-            )
-            resp.raise_for_status()
-            data    = resp.json()
-            message = data.get("message", {})
-            return {
-                "role":       message.get("role", "assistant"),
-                "content":    message.get("content") or "",
-                "tool_calls": message.get("tool_calls") or [],
-            }
-
-    # ── All other providers: LiteLLM ─────────────────────────────────────────
     kwargs: dict = dict(
         model=resolved,
         messages=_serialize_messages_for_api(messages),
         tools=TOOLS,
-        tool_choice="auto",
         stream=False,
         max_tokens=4096,
     )
+    # tool_choice="auto" breaks some Ollama models; cloud APIs handle it fine
+    if prefix not in ("ollama",):
+        kwargs["tool_choice"] = "auto"
+
     response = await litellm.acompletion(**kwargs)
     msg     = response.choices[0].message
     content = msg.content or ""
@@ -381,48 +412,34 @@ async def _call_llm(model: str, messages: list[dict]) -> dict:
     return {"role": "assistant", "content": content, "tool_calls": tool_calls}
 
 
-def _serialize_messages_for_api(messages: list[dict]) -> list[dict]:
-    """
-    Groq/OpenAI require tool_calls to have:
-      - type: "function"
-      - function.arguments as a JSON string (not a dict)
-    Serialize before every API call.
-    """
-    out = []
-    for msg in messages:
-        if msg.get("role") == "assistant" and msg.get("tool_calls"):
-            tcs = []
-            for tc in msg["tool_calls"]:
-                args = tc["function"]["arguments"]
-                tcs.append({
-                    "id":   tc.get("id", "call_0"),
-                    "type": "function",
-                    "function": {
-                        "name":      tc["function"]["name"],
-                        "arguments": json.dumps(args) if isinstance(args, dict) else (args or "{}"),
-                    },
-                })
-            out.append({**msg, "tool_calls": tcs})
-        else:
-            out.append(msg)
-    return out
+async def _call_llm_with_retry(model: str, messages: list[dict], max_retries: int = 3) -> dict:
+    """Retry on transient rate limits. Re-raises immediately on quota exhaustion."""
+    for attempt in range(max_retries):
+        try:
+            return await _call_llm(model, messages)
+        except litellm.RateLimitError as e:
+            err_str = str(e).lower()
+            is_quota = any(k in err_str for k in ("daily", "quota", "exceeded your current", "resource_exhausted", "billing"))
+            if is_quota or attempt >= max_retries - 1:
+                raise
+            delay = 60
+            match = re.search(r'retry[^\d]*(\d+)', str(e), re.IGNORECASE)
+            if match:
+                delay = int(match.group(1)) + 2
+            print(f"[agent] Rate limited. Retrying in {delay}s (attempt {attempt + 1}/{max_retries})...")
+            await asyncio.sleep(delay)
+    raise RuntimeError("Max retries exceeded")
 
 
 async def supports_tools(model: str) -> bool:
-    """
-    Probe whether the model supports tool calling.
-    Cloud APIs always return True. Local models get a quick test call.
-    """
+    """Cloud APIs always support tools. Local models get a quick probe."""
     prefix = model.split("/")[0] if "/" in model else ""
-
     if prefix in ALWAYS_SUPPORTED:
         return True
-
     resolved = model if prefix in KNOWN_PREFIXES else _resolve_model(model)
     if resolved.startswith("ollama/"):
         resolved = resolved.replace("ollama/", "ollama_chat/", 1)
     print(f"[supports_tools] model={model!r} → resolved={resolved!r}")
-
     try:
         probe_kwargs: dict = dict(
             model=resolved,
@@ -501,7 +518,7 @@ async def agent(req: AgentRequest):
 
         async def reply():
             try:
-                msg = await _call_llm(model, [
+                msg = await _call_llm_with_retry(model, [
                     {"role": "system", "content": CONVERSATIONAL_PROMPT},
                     {"role": "user",   "content": req.task},
                 ])
@@ -510,6 +527,7 @@ async def agent(req: AgentRequest):
                 yield stream_event("done", {"summary": ""})
             except Exception as e:
                 yield stream_event("error", {"message": str(e)})
+                yield stream_event("done", {"summary": "Error."})
 
         return StreamingResponse(reply(), media_type="application/x-ndjson")
 
@@ -542,7 +560,7 @@ async def agent(req: AgentRequest):
             for step in range(15):
                 print(f"\n[agent] === STEP {step} ===")
 
-                message = await _call_llm(model, messages)
+                message = await _call_llm_with_retry(model, messages)
 
                 print(f"\n========== STEP {step} RAW LLM OUTPUT ==========")
                 print(message.get("content"))
@@ -724,13 +742,12 @@ async def agent(req: AgentRequest):
                     if tool_name in ("write_file", "edit_file", "edit_lines", "insert_lines"):
                         fpath    = tool_args.get("path", "")
                         fname    = fpath.split("/")[-1]
+                        # Always read from disk if not cached
+                        if fpath not in file_cache:
+                            disk = await read_file(fpath)
+                            if not disk.startswith("[Error"):
+                                file_cache[fpath] = disk
                         original = file_cache.get(fpath, "")
-                        if not original:
-                            original = await read_file(fpath)
-                            if original.startswith("[Error"):
-                                original = ""
-                            else:
-                                file_cache[fpath] = original
 
                         if tool_name == "write_file":
                             content_to_write = tool_args.get("content", "")
@@ -837,9 +854,23 @@ async def agent(req: AgentRequest):
             else:
                 yield stream_event("done", {"summary": "Reached maximum steps."})
 
+        except litellm.RateLimitError as e:
+            err_str = str(e)
+            print(f"[agent] Rate limit: {err_str}")
+            yield stream_event("text", {"content": f"\n\n{_friendly_limit_message(err_str)}\n\n_{err_str[:300]}_"})
+            yield stream_event("done", {"summary": "Rate limited."})
+        except litellm.AuthenticationError as e:
+            print(f"[agent] Auth error: {e}")
+            yield stream_event("text", {"content": f"\n\n⚠️ **Authentication failed.** Check your API key in Settings.\n\n_{str(e)[:200]}_"})
+            yield stream_event("done", {"summary": "Auth error."})
+        except litellm.BadRequestError as e:
+            print(f"[agent] Bad request: {e}")
+            yield stream_event("text", {"content": f"\n\n⚠️ **Bad request error.**\n\n_{str(e)[:300]}_"})
+            yield stream_event("done", {"summary": "Bad request."})
         except Exception as e:
             print(f"[agent] EXCEPTION: {e}")
             yield stream_event("error", {"message": str(e)})
+            yield stream_event("done", {"summary": "Error."})
 
     return StreamingResponse(run(), media_type="application/x-ndjson")
 

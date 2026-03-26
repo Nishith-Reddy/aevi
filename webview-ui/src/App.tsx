@@ -76,9 +76,11 @@ export default function App() {
     { name: "Ollama", url: "http://localhost:11434" },
   ]);
 
-  const bottomRef  = useRef<HTMLDivElement>(null);
-  const inputRef   = useRef<HTMLTextAreaElement>(null);
-  const historyRef = useRef<{ role: string; content: string }[]>(initialHistory);
+  const bottomRef    = useRef<HTMLDivElement>(null);
+  const messagesRef  = useRef<HTMLDivElement>(null);
+  const inputRef     = useRef<HTMLTextAreaElement>(null);
+  const historyRef   = useRef<{ role: string; content: string }[]>(initialHistory);
+  const userScrolled = useRef(false);
 
   useEffect(() => {
     vscode?.postMessage({ type: "getModels" });
@@ -123,6 +125,8 @@ export default function App() {
       if (msg.type === "settingsSaved") {
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus("idle"), 2000);
+        // Re-fetch models so additions/removals are reflected immediately
+        vscode?.postMessage({ type: "getModels" });
       }
 
       if (msg.type === "activeFile") {
@@ -246,6 +250,24 @@ export default function App() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
+  // Only auto-scroll if user hasn't scrolled up
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      userScrolled.current = !atBottom;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!userScrolled.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
   function refreshModels() { vscode?.postMessage({ type: "getModels" }); }
   function stopGeneration() { vscode?.postMessage({ type: "stop" }); setLoading(false); }
 
@@ -271,6 +293,7 @@ export default function App() {
     setMessages(prev => [...prev, { role: "user", content: text }]);
     setInput("");
     setLoading(true);
+    userScrolled.current = false; // reset so new message scrolls into view
     if (mode === "agent") {
       vscode?.postMessage({ type: "agent", task: text, activeFile: contextFiles[0]?.path ?? null });
       return;
@@ -443,7 +466,7 @@ export default function App() {
       </div>
 
       {/* Messages */}
-      <div className="messages">
+      <div className="messages" ref={messagesRef}>
         {messages.length === 0 && (
           <div className="welcome">
             <p style={{ fontWeight: 500, marginBottom: 4 }}>Hi, I'm Telivi.</p>
