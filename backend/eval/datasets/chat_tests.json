@@ -1,0 +1,46 @@
+[
+  {
+    "id": "chat_001",
+    "file": "backend/services/rag.py",
+    "question": "What does the _chunk_text function do?",
+    "expected_output": "The _chunk_text function splits text into overlapping chunks based on word count. It takes text and chunk_size as parameters, splits the text into lines, accumulates lines into a buffer until the word count exceeds chunk_size, then saves the chunk and keeps the last 2 lines for overlap before starting the next chunk.",
+    "context_keywords": ["chunk", "lines", "word count", "overlap", "buffer", "chunk_size"]
+  },
+  {
+    "id": "chat_002",
+    "file": "backend/config.py",
+    "question": "What is the default model configured in telivi?",
+    "expected_output": "The default model is ollama/qwen3.5:9b which is used for chat and agent features. There is also a separate setting for enable_thinking which is off by default.",
+    "context_keywords": ["qwen3.5", "default_model", "ollama", "enable_thinking"]
+  },
+  {
+    "id": "chat_003",
+    "file": "backend/routers/chat.py",
+    "question": "How does the chat endpoint inject file context into the conversation?",
+    "expected_output": "The chat endpoint takes current_file and current_code from the request. If both are provided it truncates the code to 200 lines and prepends it to the last user message in the format 'I have this file open (filename): ```language code``` Question: user_message'",
+    "context_keywords": ["current_file", "current_code", "200 lines", "truncate", "prepend", "user message"]
+  },
+  {
+    "id": "chat_004",
+    "file": "backend/services/tools.py",
+    "question": "What commands are blocked in the run_command tool?",
+    "expected_output": "The run_command tool blocks dangerous commands including rm, mv, cp, curl, wget, sudo, chmod, chown, kill, dd, mkfs, shutdown, and reboot. It also blocks output redirection to files but allows stderr redirect with 2>&1.",
+    "context_keywords": ["rm", "mv", "sudo", "blocked", "BLOCKED_COMMANDS", "redirection"]
+  },
+  {
+    "id": "chat_005",
+    "file": "backend/routers/agent.py",
+    "question": "How does the agent detect if a model supports tool calling?",
+    "expected_output": "The supports_tools function sends a test request to Ollama's /api/chat endpoint with a single tool definition. If Ollama returns a 400 error containing 'does not support tools' it returns False, otherwise returns True if the request succeeds.",
+    "context_keywords": ["supports_tools", "400", "does not support tools", "test request", "ollama"]
+  },
+  {
+    "id": "chat_006",
+    "file": "backend/services/llm.py",
+    "question": "What does litellm.drop_params do in this code?",
+    "expected_output": "Setting litellm.drop_params to True tells LiteLLM to silently ignore parameters that a specific model does not support instead of throwing an error. This allows the same API call to work across different LLM providers that may support different parameters.",
+    "context_keywords": ["drop_params", "silently", "ignore", "unsupported", "providers"]
+  }]
+
+
+ 

@@ -1,10 +1,8 @@
-export type Mode = "chat" | "agent" | "explain" | "fix";
+export type Mode = "chat" | "agent";
 
 const MODES: { id: Mode; label: string }[] = [
-  { id: "chat",    label: "Chat"    },
-  { id: "agent",   label: "Agent"   },
-  { id: "explain", label: "Explain" },
-  { id: "fix",     label: "Fix"     },
+  { id: "chat",  label: "Chat"  },
+  { id: "agent", label: "Agent" },
 ];
 
 interface Props {

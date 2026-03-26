@@ -135,3 +135,14 @@ async def retrieve_context(query: str, workspace_path: str) -> str:
         parts.append(f"# {r['path']}\n{r['text']}")
 
     return "\n\n---\n\n".join(parts)
+
+async def remove_file_from_index(workspace_path: str, file_path: str) -> int:
+    """Remove all chunks belonging to a specific file from the index."""
+    db = _get_db(workspace_path)
+    if "code_chunks" not in db.table_names():
+        return 0
+    tbl    = db.open_table("code_chunks")
+    before = tbl.count_rows()
+    tbl.delete(f"path = '{file_path}'")
+    after  = tbl.count_rows()
+    return before - after
