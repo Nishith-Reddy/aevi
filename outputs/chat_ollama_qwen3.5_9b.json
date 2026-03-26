@@ -18,7 +18,7 @@
     },
     {
       "id": "chat_002",
-      "description": "What is the default model configured in telivi?",
+      "description": "What is the default model configured in aevi?",
       "latency": 23.81,
       "answer_relevancy": null,
       "faithfulness": null,

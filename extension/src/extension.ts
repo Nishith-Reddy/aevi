@@ -4,12 +4,12 @@ import { ChatPanel } from "./chatPanel";
 
 export function getBackendUrl(): string {
   return vscode.workspace
-    .getConfiguration("telivi")
+    .getConfiguration("aevi")
     .get<string>("backendUrl", "http://127.0.0.1:8765");
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("Telivi is now active!");
+  console.log("aevi is now active!");
 
   // ── 1. Inline completion provider ──────────────────────────────
   const completionProvider = new CompletionProvider();
@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
   // ── 2. Chat sidebar ─────────────────────────────────────────────
   const chatPanel = new ChatPanel(context);
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("telivi.chatView", chatPanel)
+    vscode.window.registerWebviewViewProvider("aevi.chatView", chatPanel)
   );
 
   // ── 3. Push saved settings to backend on startup ─────────────────
@@ -34,21 +34,21 @@ export function activate(context: vscode.ExtensionContext) {
 
   // ── 4. Command: Open Chat ───────────────────────────────────────
   context.subscriptions.push(
-    vscode.commands.registerCommand("telivi.openChat", () => {
-      vscode.commands.executeCommand("telivi.chatView.focus");
+    vscode.commands.registerCommand("aevi.openChat", () => {
+      vscode.commands.executeCommand("aevi.chatView.focus");
     })
   );
 
   // ── 5. Command: Index Workspace ─────────────────────────────────
   context.subscriptions.push(
-    vscode.commands.registerCommand("telivi.indexWorkspace", async () => {
+    vscode.commands.registerCommand("aevi.indexWorkspace", async () => {
       const folders = vscode.workspace.workspaceFolders;
       if (!folders || folders.length === 0) {
-        vscode.window.showWarningMessage("Telivi: No workspace folder open.");
+        vscode.window.showWarningMessage("aevi: No workspace folder open.");
         return;
       }
       const workspacePath = folders[0].uri.fsPath;
-      vscode.window.showInformationMessage("Telivi: Indexing workspace...");
+      vscode.window.showInformationMessage("aevi: Indexing workspace...");
       try {
         const res  = await fetch(`${getBackendUrl()}/api/index`, {
           method:  "POST",
@@ -56,16 +56,16 @@ export function activate(context: vscode.ExtensionContext) {
           body:    JSON.stringify({ workspace_path: workspacePath }),
         });
         const data = await res.json() as { indexed_chunks: number };
-        vscode.window.showInformationMessage(`Telivi: Indexed ${data.indexed_chunks} code chunks.`);
+        vscode.window.showInformationMessage(`aevi: Indexed ${data.indexed_chunks} code chunks.`);
       } catch {
-        vscode.window.showErrorMessage("Telivi: Could not reach backend. Is it running?");
+        vscode.window.showErrorMessage("aevi: Could not reach backend. Is it running?");
       }
     })
   );
 
   // ── 6. Command: Select Model ────────────────────────────────────
   context.subscriptions.push(
-    vscode.commands.registerCommand("telivi.selectModel", async () => {
+    vscode.commands.registerCommand("aevi.selectModel", async () => {
       try {
         const res  = await fetch(`${getBackendUrl()}/api/models`);
         const data = await res.json() as {
@@ -79,7 +79,7 @@ export function activate(context: vscode.ExtensionContext) {
         ];
         const picked = await vscode.window.showQuickPick(items, {
           placeHolder: `Current model: ${data.active}`,
-          title:       "Telivi: Select Model",
+          title:       "aevi: Select Model",
         });
         if (!picked) return;
         await fetch(`${getBackendUrl()}/api/models/select`, {
@@ -87,21 +87,21 @@ export function activate(context: vscode.ExtensionContext) {
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({ model: picked.label }),
         });
-        vscode.window.showInformationMessage(`Telivi: Switched to ${picked.label}`);
+        vscode.window.showInformationMessage(`aevi: Switched to ${picked.label}`);
       } catch {
-        vscode.window.showErrorMessage("Telivi: Could not reach backend. Is it running?");
+        vscode.window.showErrorMessage("aevi: Could not reach backend. Is it running?");
       }
     })
   );
 
   // ── 7. Command: Toggle Inline Completion ───────────────────────
   context.subscriptions.push(
-    vscode.commands.registerCommand("telivi.toggleInlineCompletion", () => {
-      const config  = vscode.workspace.getConfiguration("telivi");
+    vscode.commands.registerCommand("aevi.toggleInlineCompletion", () => {
+      const config  = vscode.workspace.getConfiguration("aevi");
       const current = config.get<boolean>("enableInlineCompletion", false);
       config.update("enableInlineCompletion", !current, true);
       vscode.window.showInformationMessage(
-        current ? "Telivi: Inline completions disabled." : "Telivi: Inline completions enabled (Beta)."
+        current ? "aevi: Inline completions disabled." : "aevi: Inline completions enabled (Beta)."
       );
     })
   );
@@ -119,5 +119,5 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-  console.log("Telivi deactivated.");
+  console.log("aevi deactivated.");
 }

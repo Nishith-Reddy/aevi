@@ -27,7 +27,7 @@ export default function ChatMessage({ role, content, loading, vscode }: Props) {
   return (
     <div className={`msg ${role}`}>
       <span className="msg-label">
-        {role === "user" ? "You" : role === "error" ? "Error" : "Telivi"}
+        {role === "user" ? "You" : role === "error" ? "Error" : "aevi"}
       </span>
       <div className="msg-content">
         {role === "user" || role === "error" ? (

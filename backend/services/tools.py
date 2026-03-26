@@ -123,7 +123,7 @@ async def find_in_file(path: str, pattern: str, context: int = 3) -> str:
 
 async def write_plan(workspace_path: str, task: str, steps: list) -> str:
     import json as _json
-    path = os.path.join(workspace_path, ".telivi-plan.json")
+    path = os.path.join(workspace_path, ".aevi-plan.json")
     existing_done: dict = {}
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -148,7 +148,7 @@ async def write_plan(workspace_path: str, task: str, steps: list) -> str:
 
 async def update_plan_step(workspace_path: str, step_id: int, status: str) -> str:
     import json as _json
-    path = os.path.join(workspace_path, ".telivi-plan.json")
+    path = os.path.join(workspace_path, ".aevi-plan.json")
     try:
         with open(path, "r", encoding="utf-8") as f:
             plan = _json.load(f)
@@ -173,7 +173,7 @@ async def update_plan_step(workspace_path: str, step_id: int, status: str) -> st
 
 
 async def cleanup_plan(workspace_path: str) -> str:
-    path = os.path.join(workspace_path, ".telivi-plan.json")
+    path = os.path.join(workspace_path, ".aevi-plan.json")
     try:
         os.remove(path)
         return "[OK] Plan file removed."
@@ -331,7 +331,7 @@ async def run_command(command: str) -> str:
     if first_word in BLOCKED_COMMANDS:
         return (
             f"[Blocked] '{first_word}' is not allowed for safety reasons. "
-            f"Telivi only runs read-only commands."
+            f"aevi only runs read-only commands."
         )
     if ">>" in command or ("> " in command and "2>&1" not in command):
         return "[Blocked] Output redirection to files is not allowed."

@@ -1,6 +1,6 @@
 {
-  "name": "telivi",
-  "displayName": "Telivi",
+  "name": "aevi",
+  "displayName": "aevi",
   "description": "AI coding assistant powered by local and cloud LLMs",
   "version": "0.0.1",
   "engines": {
@@ -18,49 +18,49 @@
   "contributes": {
     "commands": [
       {
-        "command": "telivi.openChat",
-        "title": "Telivi: Open Chat"
+        "command": "aevi.openChat",
+        "title": "aevi: Open Chat"
       },
       {
-        "command": "telivi.indexWorkspace",
-        "title": "Telivi: Index Workspace"
+        "command": "aevi.indexWorkspace",
+        "title": "aevi: Index Workspace"
       },
       {
-        "command": "telivi.selectModel",
-        "title": "Telivi: Select Model"
+        "command": "aevi.selectModel",
+        "title": "aevi: Select Model"
       },
       {
-        "command": "telivi.toggleInlineCompletion",
-        "title": "Telivi: Toggle Inline Completions"
+        "command": "aevi.toggleInlineCompletion",
+        "title": "aevi: Toggle Inline Completions"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "telivi",
-          "title": "Telivi",
-          "icon": "$(sparkle)"
+          "id": "aevi",
+          "title": "aevi",
+          "icon": "icon.svg"
         }
       ]
     },
     "views": {
-      "telivi": [
+      "aevi": [
         {
           "type": "webview",
-          "id": "telivi.chatView",
+          "id": "aevi.chatView",
           "name": "Chat"
         }
       ]
     },
     "configuration": {
-      "title": "Telivi",
+      "title": "aevi",
       "properties": {
-        "telivi.backendUrl": {
+        "aevi.backendUrl": {
           "type": "string",
           "default": "http://127.0.0.1:8765",
-          "description": "URL of the Telivi backend server"
+          "description": "URL of the aevi backend server"
         },
-        "telivi.enableInlineCompletion": {
+        "aevi.enableInlineCompletion": {
           "type": "boolean",
           "default": false,
           "description": "(Beta) Enable inline code completions. Works best with codellama or qwen2.5-coder models."

@@ -17,7 +17,7 @@ from rich.console import Console
 os.environ["DEEPEVAL_PER_ATTEMPT_TIMEOUT_SECONDS_OVERRIDE"] = "300"
 BACKEND_URL  = "http://127.0.0.1:8765"
 DATASETS_DIR = os.path.join(os.path.dirname(__file__), "datasets")
-PROJECT_ROOT = "/Users/nishithreddy/projects/telivi"
+PROJECT_ROOT = "/Users/nishithreddy/projects/aevi"
 
 # 2. EVALUATOR MODEL
 local_model = OllamaModel(
@@ -99,8 +99,8 @@ def load_file_content(relative_path: str) -> str:
     except FileNotFoundError:
         return f"[File not found: {full_path}]"
 
-async def ask_telivi(question: str, file_path: str, file_content: str) -> str:
-    """Send a question to the telivi chat endpoint."""
+async def ask_aevi(question: str, file_path: str, file_content: str) -> str:
+    """Send a question to the aevi chat endpoint."""
     async with httpx.AsyncClient(timeout=300.0) as client:
         resp = await client.post(
             f"{BACKEND_URL}/api/chat",
@@ -132,10 +132,10 @@ async def test_chat_quality(test_case: dict):
     ) as progress:
         
         # --- STAGE 1: BACKEND CALL ---
-        task_id = progress.add_task(f"[cyan]🤖 {test_case['id']} - Waiting for Telivi Backend...", total=None)
+        task_id = progress.add_task(f"[cyan]🤖 {test_case['id']} - Waiting for aevi Backend...", total=None)
         
         start_time = time.time()
-        actual_output = await ask_telivi(
+        actual_output = await ask_aevi(
             question=test_case["question"],
             file_path=test_case["file"],
             file_content=file_content

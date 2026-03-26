@@ -71,13 +71,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
   // ── Push saved settings to backend ─────────────────────────────────────────
   async pushSettingsToBackend() {
     const secrets   = this.context.secrets;
-    const anthropic = (await secrets.get("telivi.anthropic")) ?? "";
-    const openai    = (await secrets.get("telivi.openai"))    ?? "";
-    const groq      = (await secrets.get("telivi.groq"))      ?? "";
-    const gemini    = (await secrets.get("telivi.gemini"))    ?? "";
+    const anthropic = (await secrets.get("aevi.anthropic")) ?? "";
+    const openai    = (await secrets.get("aevi.openai"))    ?? "";
+    const groq      = (await secrets.get("aevi.groq"))      ?? "";
+    const gemini    = (await secrets.get("aevi.gemini"))    ?? "";
 
     const providers: LocalProvider[] =
-      this.context.globalState.get<LocalProvider[]>("telivi.providers") ?? [
+      this.context.globalState.get<LocalProvider[]>("aevi.providers") ?? [
         { name: "Ollama", url: "http://localhost:11434" },
       ];
 
@@ -114,7 +114,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
     setTimeout(async () => {
       const enabled = vscode.workspace
-        .getConfiguration("telivi")
+        .getConfiguration("aevi")
         .get<boolean>("enableInlineCompletion", false);
       webviewView.webview.postMessage({ type: "inlineState", enabled });
 
@@ -169,7 +169,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       }
 
       if (msg.type === "toggleInline") {
-        const config  = vscode.workspace.getConfiguration("telivi");
+        const config  = vscode.workspace.getConfiguration("aevi");
         const current = config.get<boolean>("enableInlineCompletion", false);
         await config.update("enableInlineCompletion", !current, true);
         webviewView.webview.postMessage({ type: "inlineState", enabled: !current });
@@ -179,7 +179,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         const uris = await vscode.window.showOpenDialog({
           canSelectMany:  false,
           canSelectFiles: true,
-          title:          "Add file to Telivi context",
+          title:          "Add file to aevi context",
           filters:        { "Code files": ["py","ts","js","tsx","jsx","go","rs","java","cpp","c","md"] }
         });
         if (uris && uris[0]) {
@@ -221,7 +221,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             webviewView.webview.postMessage({ type: "agentDone" });
           }
         } catch (e) {
-          console.error("[Telivi] applyWrite failed:", e);
+          console.error("[aevi] applyWrite failed:", e);
           webviewView.webview.postMessage({ type: "writeError", path: msg.path });
           webviewView.webview.postMessage({ type: "agentDone" });
         }
@@ -248,13 +248,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         const providers = msg.providers as LocalProvider[];
 
         // Store API keys in SecretStorage (encrypted)
-        await this.context.secrets.store("telivi.anthropic", keys.anthropic ?? "");
-        await this.context.secrets.store("telivi.openai",    keys.openai    ?? "");
-        await this.context.secrets.store("telivi.groq",      keys.groq      ?? "");
-        await this.context.secrets.store("telivi.gemini",    keys.gemini    ?? "");
+        await this.context.secrets.store("aevi.anthropic", keys.anthropic ?? "");
+        await this.context.secrets.store("aevi.openai",    keys.openai    ?? "");
+        await this.context.secrets.store("aevi.groq",      keys.groq      ?? "");
+        await this.context.secrets.store("aevi.gemini",    keys.gemini    ?? "");
 
         // Store provider URLs in globalState (not sensitive)
-        await this.context.globalState.update("telivi.providers", providers);
+        await this.context.globalState.update("aevi.providers", providers);
 
         // Push everything to the backend
         try {
@@ -294,13 +294,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
   // ── Send stored settings back to the webview so fields are pre-filled ──────
   private async sendSavedSettingsToWebview(webview: vscode.Webview) {
     const secrets   = this.context.secrets;
-    const anthropic = (await secrets.get("telivi.anthropic")) ?? "";
-    const openai    = (await secrets.get("telivi.openai"))    ?? "";
-    const groq      = (await secrets.get("telivi.groq"))      ?? "";
-    const gemini    = (await secrets.get("telivi.gemini"))    ?? "";
+    const anthropic = (await secrets.get("aevi.anthropic")) ?? "";
+    const openai    = (await secrets.get("aevi.openai"))    ?? "";
+    const groq      = (await secrets.get("aevi.groq"))      ?? "";
+    const gemini    = (await secrets.get("aevi.gemini"))    ?? "";
 
     const providers: LocalProvider[] =
-      this.context.globalState.get<LocalProvider[]>("telivi.providers") ?? [
+      this.context.globalState.get<LocalProvider[]>("aevi.providers") ?? [
         { name: "Ollama", url: "http://localhost:11434" },
       ];
 
@@ -380,8 +380,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       if (e instanceof Error && e.name === "AbortError") {
         webview.postMessage({ type: "agentDone" });
       } else {
-        console.error("[Telivi] handleAgent error:", e);
-        webview.postMessage({ type: "agentError", message: "Could not reach Telivi backend. Is it running?" });
+        console.error("[aevi] handleAgent error:", e);
+        webview.postMessage({ type: "agentError", message: "Could not reach aevi backend. Is it running?" });
         webview.postMessage({ type: "agentDone" });
       }
     }
@@ -458,7 +458,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       if (e instanceof Error && e.name === "AbortError") {
         webview.postMessage({ type: "streamDone" });
       } else {
-        webview.postMessage({ type: "streamError", message: "Could not reach Telivi backend. Is it running?" });
+        webview.postMessage({ type: "streamError", message: "Could not reach aevi backend. Is it running?" });
       }
     }
   }

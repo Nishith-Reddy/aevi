@@ -1,5 +1,5 @@
 """
-Telivi Evaluation Runner
+aevi Evaluation Runner
 
 Runs all evaluation suites and prints a summary scorecard.
 
@@ -75,7 +75,7 @@ def run_suite(name: str, test_file: str) -> dict:
 
 def print_scorecard(results: list[dict]):
     print(f"\n{'='*50}")
-    print("TELIVI EVAL SCORECARD")
+    print("aevi EVAL SCORECARD")
     print(f"{'='*50}")
 
     total_suites = len(results)
@@ -100,7 +100,7 @@ def print_scorecard(results: list[dict]):
     print(f"  Tests:  {passed_tests}/{total_tests} ({(passed_tests/total_tests*100 if total_tests else 0):.0f}%)")
 
     if passed_tests == total_tests:
-        print("\n🎉 All tests passed! Telivi is solid.")
+        print("\n🎉 All tests passed! aevi is solid.")
     elif passed_tests / total_tests >= 0.66:
         print("\n⚠️  Some issues found.")
     else:
@@ -108,7 +108,7 @@ def print_scorecard(results: list[dict]):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run Telivi evaluations")
+    parser = argparse.ArgumentParser(description="Run aevi evaluations")
     parser.add_argument("--chat",       action="store_true", help="Run chat eval only")
     parser.add_argument("--agent",      action="store_true", help="Run agent eval only")
     parser.add_argument("--completion", action="store_true", help="Run completion eval only")

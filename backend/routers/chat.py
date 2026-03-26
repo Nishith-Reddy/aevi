@@ -17,7 +17,7 @@ class ChatRequest(BaseModel):
     language:       str       = ""
     model:          str | None = None
 
-SYSTEM_PROMPT = """You are Telivi, an expert AI coding assistant built into VS Code.
+SYSTEM_PROMPT = """You are aevi, an expert AI coding assistant built into VS Code.
 You help developers with understanding, debugging, and improving code.
 
 IMPORTANT RULES:

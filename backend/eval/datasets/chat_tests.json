@@ -9,7 +9,7 @@
   {
     "id": "chat_002",
     "file": "backend/config.py",
-    "question": "What is the default model configured in telivi?",
+    "question": "What is the default model configured in aevi?",
     "expected_output": "The default model is ollama/qwen3.5:9b which is used for chat and agent features. There is also a separate setting for enable_thinking which is off by default.",
     "context_keywords": ["qwen3.5", "default_model", "ollama", "enable_thinking"]
   },

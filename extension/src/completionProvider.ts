@@ -5,7 +5,7 @@ import { getBackendUrl } from "./extension";
 const DEBOUNCE_MS = 1000; // increased to reduce aggressive triggering
 
 // Debug output channel — shows logs in VS Code Output panel
-const output = vscode.window.createOutputChannel("Telivi");
+const output = vscode.window.createOutputChannel("aevi");
 
 export class CompletionProvider
   implements vscode.InlineCompletionItemProvider
@@ -23,7 +23,7 @@ export class CompletionProvider
 
     // Check if inline completion is enabled in settings
     const enabled = vscode.workspace
-      .getConfiguration("telivi")
+      .getConfiguration("aevi")
       .get<boolean>("enableInlineCompletion", true);
     if (!enabled) {
       output.appendLine("[completion] disabled in settings");

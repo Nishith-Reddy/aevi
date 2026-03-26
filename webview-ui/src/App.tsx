@@ -346,8 +346,10 @@ export default function App() {
     <div className="app">
       {/* Header */}
       <div className="header">
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span className="logo">✦ Telivi</span>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 300, fontSize: 18, letterSpacing: "-0.5px", color: "var(--vscode-foreground)" }}>
+            aev<span style={{ color: "#3B82F6" }}>i</span>
+          </span>
         </div>
         <div className="header-right">
           <button
@@ -492,7 +494,7 @@ export default function App() {
       <div className="messages" ref={messagesRef}>
         {messages.length === 0 && (
           <div className="welcome">
-            <p style={{ fontWeight: 500, marginBottom: 4 }}>Hi, I'm Telivi.</p>
+            <p style={{ fontWeight: 500, marginBottom: 4 }}>Hi, I'm <strong>aevi</strong>.</p>
             <p>Use <strong>Chat</strong> to ask about your code, or <strong>Agent</strong> to make changes autonomously.</p>
           </div>
         )}

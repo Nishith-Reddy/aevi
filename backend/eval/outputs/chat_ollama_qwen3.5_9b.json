@@ -20,7 +20,7 @@
     },
     {
       "id": "chat_002",
-      "description": "What is the default model configured in telivi?",
+      "description": "What is the default model configured in aevi?",
       "expected_output": "The default model is ollama/qwen3.5:9b which is used for chat and agent features. There is also a separate setting for enable_thinking which is off by default.",
       "actual_output": "Based on the `config.py` file you provided, the default model configured is:\n\n```python\ndefault_model: str = \"ollama/qwen3.5:9b\"\n```\n\nThis model is used for chat and agent operations. It's configured to use Ollama locally (as shown by the `ollama_base_url: str = \"http://localhost:11434\"` setting).",
       "latency": 23.73,
