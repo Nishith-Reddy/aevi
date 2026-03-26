@@ -6,6 +6,10 @@
   "engines": {
     "vscode": "^1.110.0"
   },
+  "repository": {
+  "type": "git",
+  "url": "https://github.com/Nishith-Reddy/aevi"
+  },
   "categories": [
     "Machine Learning",
     "Programming Languages",
