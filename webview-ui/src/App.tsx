@@ -68,14 +68,17 @@ export default function App() {
   const [inline,       setInline]       = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [contextFiles, setContextFiles] = useState<{ fileName: string; language: string; path: string; pinned?: boolean }[]>([]);
-  const [saveStatus,   setSaveStatus]   = useState<"idle" | "saving" | "saved">("idle");
+  const [installed,    setInstalled]    = useState<boolean | null>(null);
+  const [setupStep,    setSetupStep]    = useState("");
+  const [setupError,   setSetupError]   = useState("");
 
   // Settings state
   const [apiKeys,    setApiKeys]    = useState({ anthropic: "", openai: "", groq: "", gemini: "" });
   const [providers,  setProviders]  = useState<LocalProvider[]>([
     { name: "Ollama", url: "http://localhost:11434" },
   ]);
-
+  
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const bottomRef    = useRef<HTMLDivElement>(null);
   const messagesRef  = useRef<HTMLDivElement>(null);
   const inputRef     = useRef<HTMLTextAreaElement>(null);
@@ -108,6 +111,10 @@ export default function App() {
     const handler = (e: MessageEvent) => {
       const msg = e.data;
 
+      if (msg.type === "setupStatus")   { setInstalled(msg.installed as boolean); }
+      if (msg.type === "setupProgress") { setSetupStep((msg.message as string) + ` (${msg.step}/${msg.total})`); }
+      if (msg.type === "setupError")    { setSetupError(msg.message as string); setSetupStep(""); }
+      if (msg.type === "setupDone")     { setInstalled(true); setSetupStep(""); }
       if (msg.type === "restoreState") {
         const state = msg.state as { messages: Message[]; history: { role: string; content: string }[] };
         if (state.messages?.length > 0) {
@@ -484,7 +491,45 @@ export default function App() {
         </div>
       )}
 
-      {/* Model bar */}
+      {/* Setup screen — shown before backend is installed */}
+      {installed === false && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 16px", gap: 16 }}>
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 300, fontSize: 28, letterSpacing: "-0.5px", color: "var(--vscode-foreground)" }}>
+            aev<span style={{ color: "#3B82F6" }}>i</span>
+          </span>
+          <p style={{ fontSize: 12, color: "var(--vscode-descriptionForeground)", textAlign: "center", lineHeight: 1.6, margin: 0 }}>
+            AI coding assistant powered by local and cloud LLMs.{" "}
+            Requires Python 3.11+.
+          </p>
+          {setupStep ? (
+            <div style={{ fontSize: 11, color: "var(--vscode-descriptionForeground)", textAlign: "center" }}>
+              <div style={{ marginBottom: 8 }}>⏳ {setupStep}</div>
+              <div style={{ width: 180, height: 2, background: "var(--vscode-input-border)", borderRadius: 1 }}>
+                <div style={{ height: "100%", background: "#3B82F6", borderRadius: 1, width: "60%", transition: "width 0.3s" }}/>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setSetupStep("Starting..."); vscode?.postMessage({ type: "runSetup" }); }}
+              style={{
+                background: "#3B82F6", color: "#fff", border: "none",
+                borderRadius: 6, padding: "8px 20px", fontSize: 12,
+                fontWeight: 500, cursor: "pointer",
+              }}
+            >
+              Setup Aevi
+            </button>
+          )}
+          {setupError && (
+            <div style={{ fontSize: 11, color: "var(--vscode-errorForeground)", textAlign: "center", maxWidth: 240 }}>
+              ⚠️ {setupError}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Normal UI — shown after backend is installed */}
+      {installed !== false && (<>
       <div className="model-bar">
         <ModelPicker active={models.active} local={models.local} api={models.api} onChange={switchModel} />
         <button className="refresh-btn" onClick={refreshModels} title="Refresh models">⟳</button>
@@ -494,7 +539,7 @@ export default function App() {
       <div className="messages" ref={messagesRef}>
         {messages.length === 0 && (
           <div className="welcome">
-            <p style={{ fontWeight: 500, marginBottom: 4 }}>Hi, I'm <strong>aevi</strong>.</p>
+            <p style={{ fontWeight: 500, marginBottom: 4 }}>Hi, I'm Aevi.</p>
             <p>Use <strong>Chat</strong> to ask about your code, or <strong>Agent</strong> to make changes autonomously.</p>
           </div>
         )}
@@ -561,6 +606,7 @@ export default function App() {
           )}
         </div>
       </div>
+      </>)}
     </div>
   );
 }
