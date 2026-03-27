@@ -1,4 +1,4 @@
-# extension/icon.png - AI Coding Assistant for VS Code
+# <img src="extensions/icon.png" width="45" align="top"> - AI Coding Assistant for VS Code
 
 [![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/NishithReddyP.aevi?style=flat-square&color=blue)](https://marketplace.visualstudio.com/items?itemName=NishithReddyP.aevi)
 [![Visual Studio Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/NishithReddyP.aevi?style=flat-square&color=blue)](https://marketplace.visualstudio.com/items?itemName=NishithReddyP.aevi)
@@ -7,8 +7,7 @@
 
 **Aevi** is a powerful, flexible AI coding assistant extension for Visual Studio Code. Powered by a FastAPI and LiteLLM backend, it seamlessly bridges local and cloud-based Large Language Models (LLMs) to help you write, debug, and refactor code directly in your editor.
 
-![Aevi Demo](https://via.placeholder.com/800x400.png?text=Insert+a+GIF+or+Screenshot+of+Aevi+in+Action+Here)
-
+![Aevi Demo](demo links updating soon...)
 ---
 
 ## ✨ Key Features
@@ -89,3 +88,7 @@ cd ..
 
 # 5. Compile the VS Code extension (You should be in the extensions directory)
 npm run compile  # or npm run watch to auto-recompile on changes
+
+
+# 6. Launch the Extension:
+Open the root aevi folder in VS Code and press F5 (or go to Run and Debug -> Start Debugging). This will open a new "Extension Development Host" window where you can safely test your local build of Aevi!
