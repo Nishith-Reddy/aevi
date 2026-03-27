@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "certifi>=2026.2.25",
     "fastapi>=0.135.1",
     "httpx>=0.28.1",
     "lancedb>=0.30.1",

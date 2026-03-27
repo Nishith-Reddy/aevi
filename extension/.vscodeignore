@@ -12,3 +12,11 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+scripts/**
+backend/__pycache__/**
+backend/.venv/**
+backend/rag_db/**
+backend/dist/**
+backend/build/**
+backend/eval/**
+!dist/**

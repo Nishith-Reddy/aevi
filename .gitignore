@@ -5,6 +5,8 @@ __pycache__/
 *.pyo
 .env
 rag_db/
+eval/
+output/
 
 # Node
 node_modules/
@@ -17,3 +19,6 @@ out/
 # VS Code
 .vscode/settings.json
 EOF
+
+
+docker/

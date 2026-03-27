@@ -1,71 +1,108 @@
-# aevi README
+# Aevi — AI Coding Assistant
 
-This is the README for your extension "aevi". After writing up a brief description, we recommend including the following sections.
-
-## Features
-
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+**Aevi** is an AI-powered coding assistant built into VS Code. It supports local LLMs via Ollama as well as cloud APIs (OpenAI, Anthropic, Groq, Gemini), giving you full control over your model and your data.
 
 ---
 
-## Following extension guidelines
+## Features
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+- **Chat** — ask questions about your code with full file context
+- **Agent** — autonomously make changes to your codebase with accept/reject diffs
+- **Inline completions** — AI suggestions as you type (Beta)
+- **RAG** — semantic search over your workspace for accurate context
+- **Multi-provider** — Ollama, OpenAI, Anthropic, Groq, Gemini, LM Studio, llama.cpp, vLLM
+- **Model picker** — switch models instantly from the sidebar
+- **Privacy-first** — run entirely locally with Ollama, no data leaves your machine
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+---
 
-## Working with Markdown
+## Requirements
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+Aevi requires a running backend server. Start it before using the extension.
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+### 1. Clone the repo
 
-## For more information
+```bash
+git clone https://github.com/Nishith-Reddy/aevi
+cd aevi/backend
+```
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+### 2. Set up the backend
 
-**Enjoy!**
+```bash
+python -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 3. Start the backend
+
+```bash
+python main.py
+```
+
+The server runs on `http://127.0.0.1:8765` by default.
+
+---
+
+## Setup
+
+### Local models (Ollama)
+
+1. Install [Ollama](https://ollama.com)
+2. Pull a model: `ollama pull qwen2.5-coder:7b`
+3. Open Aevi settings in the sidebar and set the Ollama URL (default: `http://localhost:11434`)
+
+### Cloud APIs
+
+Open the ⚙ settings panel in the Aevi sidebar and enter your API keys:
+
+| Provider  | Key format |
+|-----------|------------|
+| Anthropic | `sk-ant-...` |
+| OpenAI    | `sk-...` |
+| Groq      | `gsk_...` |
+| Gemini    | `AIza...` |
+
+Keys are stored securely using VS Code's built-in secret storage.
+
+---
+
+## Usage
+
+### Chat mode
+Ask questions about your code. The currently open file is automatically added as context. Use **+ Add file** to pin additional files.
+
+### Agent mode
+Describe a task and Aevi will plan and execute it step by step, showing you a diff before applying any change. You can accept or reject each edit.
+
+### Inline completions
+Enable via the ⚙ settings toggle. Works best with `qwen2.5-coder` or `codellama` models.
+
+### Index workspace
+Run **Aevi: Index Workspace** from the command palette to enable semantic search (RAG) across all your project files.
+
+---
+
+## Extension Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `aevi.backendUrl` | `http://127.0.0.1:8765` | URL of the Aevi backend server |
+| `aevi.enableInlineCompletion` | `false` | Enable inline code completions (Beta) |
+
+---
+
+## Supported Models
+
+**Local:** Ollama, LM Studio, llama.cpp, vLLM
+
+**Cloud:** OpenAI, Anthropic, Groq, Gemini
+
+Model lists are fetched live from each provider — you see exactly what your API key has access to.
+
+---
+
+## License
+
+MIT

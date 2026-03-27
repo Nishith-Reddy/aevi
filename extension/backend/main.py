@@ -8,7 +8,7 @@ from services.rag import remove_file_from_index
 from config import settings
 
 app = FastAPI(
-    title="aevi",
+    title="Telivi",
     description="AI coding assistant backend — powers VS Code extension and CLI",
     version="0.1.0",
 )

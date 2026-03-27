@@ -1,20 +1,19 @@
 {
   "name": "aevi",
-  "displayName": "aevi",
+  "displayName": "Aevi",
   "description": "AI coding assistant powered by local and cloud LLMs",
   "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.110.0"
-  },
+  "publisher": "Nishith-Reddy",
+  "icon": "icon.png",
   "repository": {
-  "type": "git",
-  "url": "https://github.com/Nishith-Reddy/aevi"
+    "type": "git",
+    "url": "https://github.com/Nishith-Reddy/aevi"
   },
-  "categories": [
-    "Machine Learning",
-    "Programming Languages",
-    "Other"
-  ],
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["AI", "Machine Learning", "Other"],
+  "keywords": ["ai", "coding", "assistant", "llm", "ollama"],
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -23,26 +22,26 @@
     "commands": [
       {
         "command": "aevi.openChat",
-        "title": "aevi: Open Chat"
+        "title": "Aevi: Open Chat"
       },
       {
         "command": "aevi.indexWorkspace",
-        "title": "aevi: Index Workspace"
+        "title": "Aevi: Index Workspace"
       },
       {
         "command": "aevi.selectModel",
-        "title": "aevi: Select Model"
+        "title": "Aevi: Select Model"
       },
       {
         "command": "aevi.toggleInlineCompletion",
-        "title": "aevi: Toggle Inline Completions"
+        "title": "Aevi: Toggle Inline Completions"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "aevi",
-          "title": "aevi",
+          "title": "Aevi",
           "icon": "icon.svg"
         }
       ]
@@ -57,12 +56,12 @@
       ]
     },
     "configuration": {
-      "title": "aevi",
+      "title": "Aevi",
       "properties": {
         "aevi.backendUrl": {
           "type": "string",
           "default": "http://127.0.0.1:8765",
-          "description": "URL of the aevi backend server"
+          "description": "URL of the Aevi backend server"
         },
         "aevi.enableInlineCompletion": {
           "type": "boolean",
