@@ -2,6 +2,16 @@
 
 All notable changes to Aevi will be documented here.
 
+## [0.0.3] — 2026-03-27
+
+- Addressed the path errors for Windows
+
+## [0.0.2] — 2026-03-26
+
+- Fixed README.md
+
+
+
 ## [0.0.1] — 2026-03-26
 
 ### Initial release

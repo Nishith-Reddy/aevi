@@ -1,6 +1,6 @@
 # Aevi — AI Coding Assistant
 
-**Aevi** is an AI-powered coding assistant built into VS Code. It supports local LLMs via Ollama as well as cloud APIs (OpenAI, Anthropic, Groq, Gemini), giving you full control over your model and your data.
+**Aevi** is an AI-powered coding assistant built into VS Code. It supports local LLMs via Ollama, vLLM as well as cloud APIs (OpenAI, Anthropic, Groq, Gemini), giving you full control over your model and your data.
 
 ---
 
@@ -18,28 +18,7 @@
 
 ## Requirements
 
-Aevi requires a running backend server. Start it before using the extension.
-
-### 1. Clone the repo
-
-```bash
-git clone https://github.com/Nishith-Reddy/aevi
-cd aevi/backend
-```
-
-### 2. Set up the backend
-
-```bash
-python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 3. Start the backend
-
-```bash
-python main.py
-```
+Aevi requires python3.11 or above.
 
 The server runs on `http://127.0.0.1:8765` by default.
 

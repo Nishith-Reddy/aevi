@@ -9,6 +9,7 @@ interface LocalProvider {
 }
 
 type ApiKeys = { anthropic: string; openai: string; groq: string; gemini: string };
+const normalizePath = (p: string) => p.replace(/\\/g, '/');
 
 export class ChatPanel implements vscode.WebviewViewProvider {
   private view?:             vscode.WebviewView;
@@ -30,7 +31,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
         this.view?.webview.postMessage({
           type:     "switchFile",
-          fileName: newPath.split("/").pop() ?? "",
+          fileName: path.basename(newPath),
           language: editor.document.languageId,
           path:     newPath,
         });
@@ -43,7 +44,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
           fetch(`${getBackendUrl()}/api/remove-file`, {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ file_path: prevPath, workspace_path: workspacePath }),
+            body:    JSON.stringify({ file_path: normalizePath(prevPath), workspace_path: normalizePath(workspacePath) }),
           }).catch(() => {});
         }
 
@@ -51,7 +52,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         fetch(`${getBackendUrl()}/api/index-file`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ file_path: newPath, workspace_path: workspacePath }),
+          body:    JSON.stringify({ file_path: normalizePath(newPath), workspace_path: normalizePath(workspacePath) }),
         }).catch(() => {});
       }
     });
@@ -71,13 +72,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
   // ── Push saved settings to backend ─────────────────────────────────────────
   async pushSettingsToBackend() {
     const secrets   = this.context.secrets;
-    const anthropic = (await secrets.get("telivi.anthropic")) ?? "";
-    const openai    = (await secrets.get("telivi.openai"))    ?? "";
-    const groq      = (await secrets.get("telivi.groq"))      ?? "";
-    const gemini    = (await secrets.get("telivi.gemini"))    ?? "";
+    const anthropic = (await secrets.get("aevi.anthropic")) ?? "";
+    const openai    = (await secrets.get("aevi.openai"))    ?? "";
+    const groq      = (await secrets.get("aevi.groq"))      ?? "";
+    const gemini    = (await secrets.get("aevi.gemini"))    ?? "";
 
     const providers: LocalProvider[] =
-      this.context.globalState.get<LocalProvider[]>("telivi.providers") ?? [
+      this.context.globalState.get<LocalProvider[]>("aevi.providers") ?? [
         { name: "Ollama", url: "http://localhost:11434" },
       ];
 
@@ -99,7 +100,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       enableScripts: true,
       localResourceRoots: [
         vscode.Uri.file(
-          path.join(this.context.extensionPath, "..", "webview-ui", "dist")
+          path.join(this.context.extensionPath, "webview_dist")
         ),
       ],
     };
@@ -114,14 +115,14 @@ export class ChatPanel implements vscode.WebviewViewProvider {
 
     setTimeout(async () => {
       const enabled = vscode.workspace
-        .getConfiguration("telivi")
+        .getConfiguration("aevi")
         .get<boolean>("enableInlineCompletion", false);
       webviewView.webview.postMessage({ type: "inlineState", enabled });
 
       if (this.lastEditor) {
         webviewView.webview.postMessage({
           type:     "switchFile",
-          fileName: this.lastEditor.document.fileName.split("/").pop() ?? "",
+          fileName: path.basename(this.lastEditor.document.fileName),
           language: this.lastEditor.document.languageId,
           path:     this.lastEditor.document.fileName,
         });
@@ -158,7 +159,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
           if (workspacePath) {
             fetch(`${getBackendUrl()}/api/index`, {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ workspace_path: workspacePath }),
+              body: JSON.stringify({ workspace_path: normalizePath(workspacePath) }),
             }).catch(() => {});
           }
         }
@@ -188,7 +189,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       }
 
       if (msg.type === "toggleInline") {
-        const config  = vscode.workspace.getConfiguration("telivi");
+        const config  = vscode.workspace.getConfiguration("aevi");
         const current = config.get<boolean>("enableInlineCompletion", false);
         await config.update("enableInlineCompletion", !current, true);
         webviewView.webview.postMessage({ type: "inlineState", enabled: !current });
@@ -198,14 +199,14 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         const uris = await vscode.window.showOpenDialog({
           canSelectMany:  false,
           canSelectFiles: true,
-          title:          "Add file to Telivi context",
+          title:          "Add file to aevi context",
           filters:        { "Code files": ["py","ts","js","tsx","jsx","go","rs","java","cpp","c","md"] }
         });
         if (uris && uris[0]) {
           const doc = await vscode.workspace.openTextDocument(uris[0]);
           webviewView.webview.postMessage({
             type:     "activeFile",
-            fileName: uris[0].fsPath.split("/").pop() ?? "",
+            fileName: path.basename(uris[0].fsPath),
             language: doc.languageId,
             path:     uris[0].fsPath,
           });
@@ -226,7 +227,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
           await fetch(`${getBackendUrl()}/api/agent/apply`, {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ path: msg.path, content: msg.content }),
+            body:    JSON.stringify({ path: normalizePath(msg.path as string), content: msg.content }),
           });
           webviewView.webview.postMessage({ type: "writeApplied", path: msg.path });
 
@@ -240,7 +241,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
             webviewView.webview.postMessage({ type: "agentDone" });
           }
         } catch (e) {
-          console.error("[Telivi] applyWrite failed:", e);
+          console.error("[aevi] applyWrite failed:", e);
           webviewView.webview.postMessage({ type: "writeError", path: msg.path });
           webviewView.webview.postMessage({ type: "agentDone" });
         }
@@ -257,7 +258,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         fetch(`${getBackendUrl()}/api/remove-file`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ file_path: msg.path, workspace_path: workspacePath }),
+          body:    JSON.stringify({ file_path: normalizePath(msg.path), workspace_path: normalizePath(workspacePath) }),
         }).catch(() => {});
       }
 
@@ -267,13 +268,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         const providers = msg.providers as LocalProvider[];
 
         // Store API keys in SecretStorage (encrypted)
-        await this.context.secrets.store("telivi.anthropic", keys.anthropic ?? "");
-        await this.context.secrets.store("telivi.openai",    keys.openai    ?? "");
-        await this.context.secrets.store("telivi.groq",      keys.groq      ?? "");
-        await this.context.secrets.store("telivi.gemini",    keys.gemini    ?? "");
+        await this.context.secrets.store("aevi.anthropic", keys.anthropic ?? "");
+        await this.context.secrets.store("aevi.openai",    keys.openai    ?? "");
+        await this.context.secrets.store("aevi.groq",      keys.groq      ?? "");
+        await this.context.secrets.store("aevi.gemini",    keys.gemini    ?? "");
 
         // Store provider URLs in globalState (not sensitive)
-        await this.context.globalState.update("telivi.providers", providers);
+        await this.context.globalState.update("aevi.providers", providers);
 
         // Push everything to the backend
         try {
@@ -296,7 +297,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
           fetch(`${getBackendUrl()}/api/clear-index`, {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ workspace_path: workspacePath, keep_file: currentFile }),
+            body:    JSON.stringify({ workspace_path: normalizePath(workspacePath), keep_file: normalizePath(currentFile) }),
           }).catch(() => {});
         }
       }
@@ -313,13 +314,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
   // ── Send stored settings back to the webview so fields are pre-filled ──────
   private async sendSavedSettingsToWebview(webview: vscode.Webview) {
     const secrets   = this.context.secrets;
-    const anthropic = (await secrets.get("telivi.anthropic")) ?? "";
-    const openai    = (await secrets.get("telivi.openai"))    ?? "";
-    const groq      = (await secrets.get("telivi.groq"))      ?? "";
-    const gemini    = (await secrets.get("telivi.gemini"))    ?? "";
+    const anthropic = (await secrets.get("aevi.anthropic")) ?? "";
+    const openai    = (await secrets.get("aevi.openai"))    ?? "";
+    const groq      = (await secrets.get("aevi.groq"))      ?? "";
+    const gemini    = (await secrets.get("aevi.gemini"))    ?? "";
 
     const providers: LocalProvider[] =
-      this.context.globalState.get<LocalProvider[]>("telivi.providers") ?? [
+      this.context.globalState.get<LocalProvider[]>("aevi.providers") ?? [
         { name: "Ollama", url: "http://localhost:11434" },
       ];
 
@@ -365,7 +366,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       const res = await fetch(`${getBackendUrl()}/api/agent`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ task: taskWithContext, workspace_path: workspacePath, resume_state: resumeState ?? null }),
+        body:    JSON.stringify({ task: taskWithContext, workspace_path: normalizePath(workspacePath), resume_state: resumeState ?? null }),
         signal,
       });
       if (!res.ok || !res.body) throw new Error("Backend error");
@@ -399,8 +400,8 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       if (e instanceof Error && e.name === "AbortError") {
         webview.postMessage({ type: "agentDone" });
       } else {
-        console.error("[Telivi] handleAgent error:", e);
-        webview.postMessage({ type: "agentError", message: "Could not reach Telivi backend. Is it running?" });
+        console.error("[aevi] handleAgent error:", e);
+        webview.postMessage({ type: "agentError", message: "Could not reach aevi backend. Is it running?" });
         webview.postMessage({ type: "agentDone" });
       }
     }
@@ -422,7 +423,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         const res = await fetch(`${getBackendUrl()}/api/retrieve`, {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ query: lastUserMsg, workspace_path: workspacePath }),
+          body:    JSON.stringify({ query: lastUserMsg, workspace_path: normalizePath(workspacePath) }),
         });
         if (res.ok) {
           const data = await res.json() as { chunks: string[]; chunks_found: number };
@@ -449,7 +450,10 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         if (full.length <= SMALL_FILE) {
           currentCode = full;
         } else {
-          const cut   = full.lastIndexOf("\n", SMALL_FILE);
+          let cut = full.lastIndexOf("\n", SMALL_FILE);
+          if (cut > 0 && full[cut - 1] === "\r") {
+            cut -= 1;
+          }
           currentCode = full.slice(0, cut) + `\n// ... [file too large for context]`;
           webview.postMessage({ type: "fileTruncated", files: [contextFiles[0].fileName] });
         }
@@ -461,7 +465,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       const res = await fetch(`${getBackendUrl()}/api/chat`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ messages, workspace_path: workspacePath, current_file: currentFile, current_code: currentCode, language }),
+        body:    JSON.stringify({ messages, workspace_path: normalizePath(workspacePath), current_file: normalizePath(currentFile), current_code: currentCode, language }),
         signal,
       });
       if (!res.ok || !res.body) throw new Error("Backend error");
@@ -477,13 +481,13 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       if (e instanceof Error && e.name === "AbortError") {
         webview.postMessage({ type: "streamDone" });
       } else {
-        webview.postMessage({ type: "streamError", message: "Could not reach Telivi backend. Is it running?" });
+        webview.postMessage({ type: "streamError", message: "Could not reach aevi backend. Is it running?" });
       }
     }
   }
 
   private getHtml(webview: vscode.Webview): string {
-    const distPath  = path.join(this.context.extensionPath, "..", "webview-ui", "dist");
+    const distPath  = path.join(this.context.extensionPath, "webview_dist");
     const indexPath = path.join(distPath, "index.html");
     let html        = fs.readFileSync(indexPath, "utf8");
 

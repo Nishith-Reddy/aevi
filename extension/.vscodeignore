@@ -20,3 +20,8 @@ backend/dist/**
 backend/build/**
 backend/eval/**
 !dist/**
+**/.env
+**/.env.local
+**/__pycache__/**
+**/.pytest_cache/**
+**/.deepeval/**
