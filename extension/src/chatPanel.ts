@@ -112,7 +112,6 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         webviewView.webview.postMessage({ type: "resetLoading" });
       }
     });
-
     setTimeout(async () => {
       const enabled = vscode.workspace
         .getConfiguration("aevi")
@@ -136,15 +135,26 @@ export class ChatPanel implements vscode.WebviewViewProvider {
         webviewView.webview.postMessage({ type: "restoreState", state: saved });
       }
 
-      // Restore saved settings into the UI
       await this.sendSavedSettingsToWebview(webviewView.webview);
 
-      // Push to backend (keys may have loaded after initial startup)
-      await this.pushSettingsToBackend();
+      // ── Auto-Setup & Startup Logic ─────────────────────────────────────────
+      const { isInstalled, startBackend } = await import("./extension.js");
 
-      this.fetchAndSendModels(webviewView.webview);
+      const installed = isInstalled();
+      
+      // 1. Tell UI to show the Setup Screen (with button) or the Chat UI
+      webviewView.webview.postMessage({ type: "setupStatus", installed });
+
+      if (installed) {
+        // 2. If already installed, ensure main.py starts immediately
+        const ok = await startBackend(this.context);
+        if (ok) {
+          await this.pushSettingsToBackend();
+          await this.fetchAndSendModels(webviewView.webview);
+        }
+      } 
+     
     }, 600);
-
     webviewView.webview.onDidReceiveMessage(async (msg) => {
       // ── Setup ────────────────────────────────────────────────────────────
       if (msg.type === "runSetup") {

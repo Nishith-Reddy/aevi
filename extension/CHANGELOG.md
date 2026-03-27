@@ -2,9 +2,18 @@
 
 All notable changes to Aevi will be documented here.
 
+## [0.0.5] — 2026-03-27
+
+- Resolved an issue where the setup window failed to appear during the initial installation of the extension.
+- Added trouble shooting steps to the documentation
+
+## [0.0.4] — 2026-03-27
+
+- Fixed the default model issue.
+
 ## [0.0.3] — 2026-03-27
 
-- Addressed the path errors for Windows
+- Addressed the path handling errors for Windows
 
 ## [0.0.2] — 2026-03-26
 

@@ -2,7 +2,7 @@
   "name": "aevi",
   "displayName": "Aevi",
   "description": "AI coding assistant powered by local and cloud LLMs",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "publisher": "NishithReddyP",
   "icon": "icon.png",
   "repository": {
@@ -35,6 +35,10 @@
       {
         "command": "aevi.toggleInlineCompletion",
         "title": "Aevi: Toggle Inline Completions"
+      },
+      {
+        "command": "aevi.reinstallBackend",
+        "title": "Aevi: Reinstall Backend"
       }
     ],
     "viewsContainers": {

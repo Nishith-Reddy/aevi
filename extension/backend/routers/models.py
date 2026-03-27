@@ -200,9 +200,15 @@ async def list_models():
         for r in results:
             if isinstance(r, list):
                 api_models += r
-
+    all_available_names = [m["name"] for m in local_models + api_models]
+    global _active_model
+    current_active = get_active_model()
+    
+    if all_available_names and current_active not in all_available_names:
+        _active_model  = all_available_names[0]
+        current_active = _active_model
     return {
-        "active": get_active_model(),
+        "active": current_active,
         "local":  local_models,
         "api":    api_models,
     }

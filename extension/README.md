@@ -82,6 +82,32 @@ Model lists are fetched live from each provider — you see exactly what your AP
 
 ---
 
+## Troubleshooting
+
+If you encounter a **"Could not reach Aevi backend"** error, or if the Python environment failed to install correctly the first time, you can force the extension to run the setup process again.
+
+### How to Re-trigger the Setup Process
+
+If the backend isn't running, the best first step is to completely wipe the corrupted environment and start fresh. 
+
+1. **Run the Reinstall Command:**
+   * Open the VS Code Command Palette (`Cmd+Shift+P` on Mac, `Ctrl+Shift+P` on Windows/Linux).
+   * Type and select **`Aevi: Reinstall Backend`**.
+   * *Note: This will safely delete the hidden `~/.aevi` folder and the installation marker.*
+
+2. **Restart VS Code:**
+   * Close and reopen VS Code entirely, or run the **`Developer: Reload Window`** command from the Command Palette.
+
+3. **Run the Setup:**
+   * Click the Aevi icon in your sidebar. 
+   * Because the environment was cleared, you will see the initial **"Setup Aevi"** screen again.
+   * Click the button to download the dependencies and rebuild the Python backend.
+
+### Still having issues?
+* **Check Python Version:** Ensure you have Python 3.11 or higher installed on your system and accessible in your system's PATH. 
+* **Port Conflicts:** Aevi uses port `8765` by default. If another app is using this port, you can change it in your VS Code settings by searching for `aevi.backendUrl` and updating it to a different port (e.g., `http://127.0.0.1:8888`).
+
+
 ## License
 
 MIT
