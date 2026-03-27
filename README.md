@@ -1,4 +1,4 @@
-# <img src="extensions/icon.png" width="45" align="top"> - AI Coding Assistant for VS Code
+# <img src="extension/icon.png" width="45" align="top"> - AI Coding Assistant for VS Code
 
 [![Visual Studio Marketplace Version](https://img.shields.io/visual-studio-marketplace/v/NishithReddyP.aevi?style=flat-square&color=blue)](https://marketplace.visualstudio.com/items?itemName=NishithReddyP.aevi)
 [![Visual Studio Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/NishithReddyP.aevi?style=flat-square&color=blue)](https://marketplace.visualstudio.com/items?itemName=NishithReddyP.aevi)
