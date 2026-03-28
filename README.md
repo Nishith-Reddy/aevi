@@ -7,7 +7,7 @@
 
 **Aevi** is a powerful, flexible AI coding assistant extension for Visual Studio Code. Powered by a FastAPI and LiteLLM backend, it seamlessly bridges local and cloud-based Large Language Models (LLMs) to help you write, debug, and refactor code directly in your editor.
 
-<video src="demo/aevi-demo.mp4" autoplay loop muted playsinline width="100%"></video>
+<video src="https://raw.githubusercontent.com/Nishith-Reddy/aevi/main/demo/aevi-demo.mp4" autoplay loop muted playsinline width="100%"></video>
 ---
 
 ## ✨ Key Features
