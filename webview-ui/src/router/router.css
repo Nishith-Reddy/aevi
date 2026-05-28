@@ -1,0 +1,310 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Aevi semantic router — fullscreen canvas styled to fit VS Code themes
+   ─────────────────────────────────────────────────────────────────────────── */
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.router-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: 12px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.router-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+  background: var(--vscode-sideBar-background);
+  flex-shrink: 0;
+}
+
+.router-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand {
+  font-family: "Outfit", sans-serif;
+  font-weight: 300;
+  font-size: 22px;
+  letter-spacing: -0.5px;
+}
+.brand .i { color: #3B82F6; }
+.subtitle {
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
+.router-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  margin-right: 6px;
+}
+
+.btn {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.primary {
+  background: var(--vscode-button-background);
+  color:      var(--vscode-button-foreground);
+  border-color: transparent;
+}
+.btn.primary:hover { background: var(--vscode-button-hoverBackground); }
+.btn.ghost {
+  background: transparent;
+  border-style: dashed;
+  color: var(--vscode-descriptionForeground);
+}
+.btn.block { width: 100%; margin-top: 6px; }
+
+/* ── Body layout ────────────────────────────────────────────────────────── */
+.router-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.canvas-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vscode-descriptionForeground);
+  pointer-events: none;
+}
+
+.router-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--vscode-sideBarSectionHeader-border);
+  background: var(--vscode-sideBar-background);
+  padding: 14px 16px;
+  overflow-y: auto;
+}
+.router-sidebar h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--vscode-descriptionForeground);
+}
+.hint {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.4;
+  margin: 0 0 8px;
+}
+.test-input {
+  width: 100%;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.sep {
+  margin: 20px 0;
+  border: none;
+  border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+}
+.how {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.6;
+}
+
+.test-result {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background, rgba(127,127,127,0.08));
+  border: 1px solid var(--vscode-input-border);
+  font-size: 11px;
+}
+.test-result.ok    { border-left: 3px solid #3B82F6; }
+.test-result.warn  { border-left: 3px solid #d97706; }
+.result-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.result-row .label { color: var(--vscode-descriptionForeground); }
+.result-row .value { word-break: break-all; }
+.mono { font-family: var(--vscode-editor-font-family); }
+
+/* ── React Flow node styling ────────────────────────────────────────────── */
+.rf-node {
+  background: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  min-width: 180px;
+  font-size: 11px;
+  color: var(--vscode-foreground);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+}
+.react-flow__node.selected .rf-node {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 2px var(--vscode-focusBorder);
+}
+.node-title {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+.node-subtitle {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 6px;
+}
+
+.node-input  .node-title::before { content: "▶ "; color: #3B82F6; }
+.node-output .node-title::before { content: "■ "; color: #10b981; }
+.node-classifier .node-title::before { content: "⋔ "; color: #d97706; }
+.node-model  .node-title::before { content: "◆ "; color: #8b5cf6; }
+
+.node-classifier { min-width: 260px; }
+.node-model      { min-width: 220px; }
+
+.routes { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.route {
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  padding: 6px;
+}
+.route-head { display: flex; gap: 4px; margin-bottom: 4px; }
+.label-input {
+  flex: 1;
+  background: transparent;
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.examples { display: flex; flex-direction: column; gap: 3px; }
+.example-row { display: flex; gap: 3px; align-items: center; }
+.example-input {
+  flex: 1;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 10px;
+}
+.add-ex, .add-route {
+  background: transparent;
+  border: 1px dashed var(--vscode-input-border);
+  color: var(--vscode-descriptionForeground);
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.add-route { margin-top: 4px; }
+.x {
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 4px;
+}
+.x.small { font-size: 10px; }
+
+.model-select {
+  width: 100%;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-size: 11px;
+  margin-top: 4px;
+}
+.model-current {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  word-break: break-all;
+}
+
+/* Handle labels (classifier source handles) */
+.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  background: #3B82F6;
+  border: 1px solid var(--vscode-editor-background);
+}
+.handle-label {
+  position: absolute;
+  left: 14px;
+  top: -7px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Highlight matched nodes during a test run */
+.react-flow__node.node-matched .rf-node {
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.45);
+}
+
+/* React Flow controls / minimap — tweak for dark themes */
+.react-flow__minimap   { background: var(--vscode-sideBar-background); }
+.react-flow__controls button {
+  background: var(--vscode-sideBar-background);
+  color:      var(--vscode-foreground);
+  border-bottom: 1px solid var(--vscode-input-border);
+}
+.react-flow__controls button:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}

@@ -12,9 +12,10 @@ interface Props {
 }
 
 export default function ChatMessage({ role, content, loading, vscode }: Props) {
-  const confirmIdx   = content.indexOf("__CONFIRM__:");
-  const mainContent  = confirmIdx >= 0 ? content.slice(0, confirmIdx) : content;
-  const confirmBlock = confirmIdx >= 0 ? content.slice(confirmIdx + "__CONFIRM__:".length) : null;
+  const safeContent  = content ?? "";
+  const confirmIdx   = safeContent.indexOf("__CONFIRM__:");
+  const mainContent  = confirmIdx >= 0 ? safeContent.slice(0, confirmIdx) : safeContent;
+  const confirmBlock = confirmIdx >= 0 ? safeContent.slice(confirmIdx + "__CONFIRM__:".length) : null;
 
   let confirmPath    = "";
   let confirmContent = "";

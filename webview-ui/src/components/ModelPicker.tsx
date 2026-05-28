@@ -4,12 +4,23 @@ interface Model {
   source: string;
 }
 
+interface RouterSummary {
+  id:      string;
+  name:    string;
+  enabled: boolean;
+}
+
 interface Props {
   active:   string;
   local:    Model[];
   api:      Model[];
+  routers:  RouterSummary[];
   onChange: (model: string) => void;
+  mode:     "chat" | "agent";
 }
+
+export const ROUTER_PREFIX = "router/";
+export const isRouterModel = (m: string) => m.startsWith(ROUTER_PREFIX);
 
 const PROVIDER_LABELS: Record<string, string> = {
   ollama:     "Ollama",
@@ -31,7 +42,7 @@ function displayName(model: Model): string {
   return name.startsWith(prefix) ? name.slice(prefix.length) : name;
 }
 
-export default function ModelPicker({ active, local, api, onChange }: Props) {
+export default function ModelPicker({ active, local, api, routers, onChange, mode }: Props) {
   // Group local models by source
   const localGroups: Record<string, Model[]> = {};
   for (const m of local) {
@@ -58,6 +69,16 @@ export default function ModelPicker({ active, local, api, onChange }: Props) {
       onChange={e => onChange(e.target.value)}
       title="Select model"
     >
+      {mode === "agent" && routers.length > 0 && (
+        <optgroup label="Semantic Routers">
+          {routers.map(r => (
+            <option key={r.id} value={`${ROUTER_PREFIX}${r.id}`}>
+              {r.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
+
       {hasLocal && Object.entries(localGroups).map(([src, models]) => (
         <optgroup key={src} label={`Local · ${PROVIDER_LABELS[src] ?? src}`}>
           {models.map(m => (
