@@ -4,6 +4,7 @@ import AgentMessage from "./components/AgentMessage";
 import ModelPicker, { isRouterModel } from "./components/ModelPicker";
 import FileIcon from "./components/FileIcon";
 import ModeSelector, { type Mode } from "./components/ModeSelector";
+import MetaFooter, { type MessageMeta } from "./components/MetaFooter";
 
 interface VsCodeApi {
   postMessage: (message: unknown) => void;
@@ -34,6 +35,21 @@ interface Message {
   role: "user" | "assistant" | "error" | "agent";
   content: string;
   steps?: AgentStep[];
+  meta?: MessageMeta;
+}
+
+const META_MARKER = "\n__META__:";
+
+function splitMeta(text: string): { content: string; meta?: MessageMeta } {
+  const idx = text.lastIndexOf(META_MARKER);
+  if (idx < 0) return { content: text };
+  const visible = text.slice(0, idx);
+  const rest = text.slice(idx + META_MARKER.length);
+  try {
+    return { content: visible, meta: JSON.parse(rest) as MessageMeta };
+  } catch {
+    return { content: visible };
+  }
 }
 
 interface ModelsData {
@@ -328,6 +344,27 @@ export default function App() {
             "Agent error.") as string;
           setMessages((prev) => [...prev, { role: "error", content: errText }]);
         }
+
+        if (ev.event === "done") {
+          const usage = (ev as unknown as { usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } }).usage;
+          const elapsedMs = (ev as unknown as { elapsed_ms?: number }).elapsed_ms;
+          const meta: MessageMeta = {
+            ...(usage ?? {}),
+            ...(typeof elapsedMs === "number" ? { elapsed_ms: elapsedMs } : {}),
+          };
+          if (Object.keys(meta).length > 0) {
+            setMessages((prev) => {
+              const u = [...prev];
+              for (let i = u.length - 1; i >= 0; i--) {
+                if (u[i].role === "agent") {
+                  u[i] = { ...u[i], meta };
+                  return u;
+                }
+              }
+              return prev;
+            });
+          }
+        }
       }
 
       if (msg.type === "agentDone") {
@@ -373,9 +410,14 @@ export default function App() {
       if (msg.type === "streamChunk") {
         setMessages((prev) => {
           const u = [...prev];
+          const last = u[u.length - 1];
+          const combined = last.content + (msg.chunk as string);
+          const { content, meta } = splitMeta(combined);
           u[u.length - 1] = {
+            ...last,
             role: "assistant",
-            content: u[u.length - 1].content + (msg.chunk as string),
+            content,
+            ...(meta ? { meta } : {}),
           };
           return u;
         });
@@ -910,6 +952,7 @@ export default function App() {
                         loading={loading && i === messages.length - 1}
                         vscode={vscode}
                       />
+                      {m.meta && <MetaFooter meta={m.meta} />}
                     </div>
                   </div>
                 );
@@ -925,6 +968,7 @@ export default function App() {
                     m.role === "assistant"
                   }
                   vscode={vscode}
+                  meta={m.meta}
                 />
               );
             })}

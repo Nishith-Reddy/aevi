@@ -8,12 +8,14 @@ export interface RouteSpec {
 interface ClassifierData {
   routes:    RouteSpec[];
   __onChange?: (routes: RouteSpec[]) => void;
+  __onDelete?: () => void;
 }
 
 export default function ClassifierNode({ data }: NodeProps) {
   const d        = data as unknown as ClassifierData;
   const routes   = d.routes ?? [];
   const onChange = d.__onChange ?? (() => {});
+  const onDelete = d.__onDelete;
 
   function updateRoute(i: number, patch: Partial<RouteSpec>) {
     onChange(routes.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -47,6 +49,17 @@ export default function ClassifierNode({ data }: NodeProps) {
   return (
     <div className="rf-node node-classifier">
       <Handle type="target" position={Position.Left} id="in" />
+      {onDelete && (
+        <button
+          className="node-x"
+          title="Delete classifier"
+          aria-label="Delete classifier"
+          onClick={e => { e.stopPropagation(); onDelete(); }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          ✕
+        </button>
+      )}
       <div className="node-title">Classifier</div>
       <div className="node-subtitle">Routes the task by semantic similarity</div>
 

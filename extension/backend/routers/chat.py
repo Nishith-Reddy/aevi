@@ -1,3 +1,6 @@
+import json
+import time
+
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
@@ -114,8 +117,10 @@ async def chat(req: ChatRequest):
     messages.extend(optimized_history)
 
     async def generate():
+        start = time.monotonic()
+        usage: dict = {}
         try:
-            async for chunk in stream_completion(messages, model=req.model):
+            async for chunk in stream_completion(messages, model=req.model, meta_out=usage):
                 yield chunk
         except litellm.RateLimitError as e:
             yield f"\n\n{_friendly_limit_message(str(e))}\n\n_{str(e)[:300]}_"
@@ -125,5 +130,13 @@ async def chat(req: ChatRequest):
             yield f"\n\n⚠️ **Bad request error.**\n\n_{str(e)[:300]}_"
         except Exception as e:
             yield f"\n\n⚠️ **Unexpected error:** {str(e)[:300]}"
+
+        meta = {
+            "prompt_tokens":     usage.get("prompt_tokens", 0),
+            "completion_tokens": usage.get("completion_tokens", 0),
+            "total_tokens":      usage.get("total_tokens", 0),
+            "elapsed_ms":        int((time.monotonic() - start) * 1000),
+        }
+        yield "\n__META__:" + json.dumps(meta)
 
     return StreamingResponse(generate(), media_type="text/plain")

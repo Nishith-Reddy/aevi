@@ -188,6 +188,16 @@ input:checked + .slider:before { transform: translateX(13px); }
 .msg.assistant .msg-content ol { padding-left: 16px; margin-bottom: 8px; }
 .msg.assistant .msg-content li { margin-bottom: 2px; }
 
+/* Tokens / time footer under assistant + agent messages */
+.msg-meta {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family);
+  opacity: 0.75;
+  letter-spacing: 0.02em;
+}
+
 /* Inline code */
 .inline-code {
   background: var(--vscode-textBlockQuote-background);

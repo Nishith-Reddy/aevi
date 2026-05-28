@@ -10,6 +10,7 @@ interface ModelData {
   model:       string;
   __models?:   ModelOption[];
   __onChange?: (model: string) => void;
+  __onDelete?: () => void;
 }
 
 export default function ModelNode({ data }: NodeProps) {
@@ -17,6 +18,7 @@ export default function ModelNode({ data }: NodeProps) {
   const model    = d.model ?? "";
   const options  = d.__models ?? [];
   const onChange = d.__onChange ?? (() => {});
+  const onDelete = d.__onDelete;
 
   const grouped: Record<string, ModelOption[]> = {};
   for (const o of options) {
@@ -27,6 +29,17 @@ export default function ModelNode({ data }: NodeProps) {
   return (
     <div className="rf-node node-model">
       <Handle type="target" position={Position.Left} id="in" />
+      {onDelete && (
+        <button
+          className="node-x"
+          title="Delete model"
+          aria-label="Delete model"
+          onClick={e => { e.stopPropagation(); onDelete(); }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          ✕
+        </button>
+      )}
       <div className="node-title">Model</div>
       <div className="node-subtitle">Picked when this branch wins</div>
 

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 import { getBackendUrl } from "./extension";
+import { onModelsChanged, onRoutersChanged } from "./panelEvents";
 
 interface LocalProvider {
   name: string;
@@ -19,6 +20,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
   private resumeState:       Record<string, unknown> | null = null;
   private pendingTask        = "";
   private pendingWorkspace   = "";
+  private routersChangedSub?: vscode.Disposable;
 
   constructor(context: vscode.ExtensionContext) {
     this.context = context;
@@ -106,6 +108,17 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     };
 
     webviewView.webview.html = this.getHtml(webviewView.webview);
+
+    // When the router panel changes the set of routers, refresh the chat
+    // model picker so the new/renamed/removed router shows up.
+    this.routersChangedSub?.dispose();
+    this.routersChangedSub = onRoutersChanged.event(() => {
+      this.fetchAndSendModels(webviewView.webview);
+    });
+    webviewView.onDidDispose(() => {
+      this.routersChangedSub?.dispose();
+      this.routersChangedSub = undefined;
+    });
 
     webviewView.onDidChangeVisibility(() => {
       if (webviewView.visible && !this.abortController) {
@@ -349,6 +362,9 @@ export class ChatPanel implements vscode.WebviewViewProvider {
     } catch {
       webview.postMessage({ type: "models", data: { active: "", local: [], api: [] } });
     }
+    // Let the router panel mirror whatever model list the chat just received.
+    // Safe to fire even if the router panel is closed — no listener, no-op.
+    onModelsChanged.fire();
   }
 
   private async handleAgent(

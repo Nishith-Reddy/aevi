@@ -101,7 +101,14 @@ export default function RouterApp() {
   const [testInput,  setTestInput]  = useState("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [loaded,     setLoaded]     = useState(false);
+  const [adding,     setAdding]     = useState(false);
+  const [pendingName, setPendingName] = useState("");
+  const [testOpen,   setTestOpen]   = useState(false);
   const initialized = useRef(false);
+  const addInputRef = useRef<HTMLInputElement | null>(null);
+  const activeIdRef = useRef<string | null>(null);
+  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
+  useEffect(() => { if (adding) addInputRef.current?.focus(); }, [adding]);
 
   useEffect(() => {
     if (initialized.current) return;
@@ -135,7 +142,11 @@ export default function RouterApp() {
       if (msg.type === "router:saved") {
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus("idle"), 1800);
-        if (typeof msg.name === "string") setName(msg.name);
+        // Only adopt the new name locally if the rename targeted the
+        // router currently open in the canvas.
+        if (typeof msg.name === "string" && (!msg.id || msg.id === activeIdRef.current)) {
+          setName(msg.name);
+        }
         // Refresh the sidebar (in case name changed)
         vscode?.postMessage({ type: "router:list" });
       }
@@ -143,6 +154,8 @@ export default function RouterApp() {
         const created = msg.data as RouterGraph;
         vscode?.postMessage({ type: "router:list" });
         setActiveId(created.id);
+        setAdding(false);
+        setPendingName("");
       }
       if (msg.type === "router:deleted") {
         vscode?.postMessage({ type: "router:list" });
@@ -192,6 +205,11 @@ export default function RouterApp() {
     setNodes(prev => prev.map(n => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)));
   }
 
+  function deleteNode(id: string) {
+    setNodes(prev => prev.filter(n => n.id !== id));
+    setEdges(prev => prev.filter(e => e.source !== id && e.target !== id));
+  }
+
   function addClassifier() {
     setNodes(prev => [...prev, {
       id: newId("classifier"),
@@ -233,22 +251,37 @@ export default function RouterApp() {
   }
 
   function addRouter() {
-    vscode?.postMessage({ type: "router:add" });
+    setPendingName("");
+    setAdding(true);
   }
 
-  function renameActive() {
-    if (!activeId) return;
+  function commitAdd() {
+    const name = pendingName.trim();
+    if (!name) { setAdding(false); return; }
+    vscode?.postMessage({ type: "router:create", name });
+    // The router:created handler closes the input via the effect below.
+  }
+
+  function cancelAdd() {
+    setAdding(false);
+    setPendingName("");
+  }
+
+  function renameRouter(r: RouterSummary) {
+    // When renaming the currently-loaded router we already have the latest
+    // (possibly unsaved) graph in state; otherwise let the backend keep the
+    // saved graph and only swap the name.
+    const isActive = r.id === activeId;
     vscode?.postMessage({
       type:        "router:rename",
-      id:          activeId,
-      currentName: name,
-      graph:       { enabled, nodes, edges },
+      id:          r.id,
+      currentName: isActive ? name : r.name,
+      graph:       isActive ? { enabled, nodes, edges } : null,
     });
   }
 
-  function deleteActive() {
-    if (!activeId) return;
-    vscode?.postMessage({ type: "router:delete", id: activeId, name });
+  function deleteRouter(r: RouterSummary) {
+    vscode?.postMessage({ type: "router:delete", id: r.id, name: r.name });
   }
 
   function runTest() {
@@ -264,12 +297,16 @@ export default function RouterApp() {
 
   const nodesWithCallbacks = useMemo(() => {
     return nodes.map(n => {
+      if (n.type === "input" || n.type === "output") {
+        return { ...n, deletable: false };
+      }
       if (n.type === "classifier") {
         return {
           ...n,
           data: {
             ...n.data,
             __onChange: (routes: RouteSpec[]) => updateNodeData(n.id, { routes }),
+            __onDelete: () => deleteNode(n.id),
           },
         };
       }
@@ -280,6 +317,7 @@ export default function RouterApp() {
             ...n.data,
             __models:  allModelOptions,
             __onChange: (modelId: string) => updateNodeData(n.id, { model: modelId }),
+            __onDelete: () => deleteNode(n.id),
           },
         };
       }
@@ -315,6 +353,14 @@ export default function RouterApp() {
               <span>{enabled ? "Enabled" : "Disabled"}</span>
             </label>
           )}
+          <button
+            className="btn ghost"
+            onClick={() => vscode?.postMessage({ type: "router:getModels" })}
+            title="Refresh model list"
+            aria-label="Refresh model list"
+          >
+            ↻
+          </button>
           <button className="btn" onClick={addClassifier} disabled={!hasActive}>+ Classifier</button>
           <button className="btn" onClick={addModel} disabled={!hasActive}>+ Model</button>
           <button className="btn ghost" onClick={deleteSelected} disabled={!hasActive} title="Delete selected (Input/Output cannot be removed)">Delete selected</button>
@@ -346,13 +392,60 @@ export default function RouterApp() {
             display:        "flex",
             alignItems:     "center",
             justifyContent: "space-between",
-            borderBottom:   "1px solid var(--vscode-sideBarSectionHeader-border)",
+            borderBottom:   adding ? "none" : "1px solid var(--vscode-sideBarSectionHeader-border)",
           }}>
             <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--vscode-descriptionForeground)" }}>
               Routers
             </span>
-            <button className="btn" style={{ padding: "2px 8px", fontSize: 12 }} onClick={addRouter}>+ Add</button>
+            <button
+              className="btn"
+              style={{ padding: "2px 8px", fontSize: 12 }}
+              onClick={addRouter}
+              disabled={adding}
+            >
+              + Add
+            </button>
           </div>
+
+          {adding && (
+            <div style={{
+              padding:      "8px 12px 10px",
+              borderBottom: "1px solid var(--vscode-sideBarSectionHeader-border)",
+              display:      "flex",
+              flexDirection:"column",
+              gap:          6,
+            }}>
+              <input
+                ref={addInputRef}
+                className="test-input"
+                style={{ padding: "4px 6px", fontSize: 12 }}
+                placeholder="Name this router"
+                value={pendingName}
+                onChange={e => setPendingName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter")  { e.preventDefault(); commitAdd(); }
+                  if (e.key === "Escape") { e.preventDefault(); cancelAdd(); }
+                }}
+              />
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  className="btn primary"
+                  style={{ flex: 1, fontSize: 11 }}
+                  onClick={commitAdd}
+                  disabled={!pendingName.trim()}
+                >
+                  Create
+                </button>
+                <button
+                  className="btn ghost"
+                  style={{ flex: 1, fontSize: 11 }}
+                  onClick={cancelAdd}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           <div style={{ overflowY: "auto", flex: 1 }}>
             {routers.length === 0 && (
@@ -366,38 +459,32 @@ export default function RouterApp() {
                 <div
                   key={r.id}
                   onClick={() => setActiveId(r.id)}
-                  style={{
-                    padding:      "8px 12px",
-                    cursor:       "pointer",
-                    background:   isActive ? "var(--vscode-list-activeSelectionBackground)" : "transparent",
-                    color:        isActive ? "var(--vscode-list-activeSelectionForeground)" : "var(--vscode-foreground)",
-                    fontSize:     12,
-                    display:      "flex",
-                    alignItems:   "center",
-                    justifyContent:"space-between",
-                    gap:          6,
-                  }}
+                  className={`router-row${isActive ? " active" : ""}`}
                 >
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {r.name}
+                  <span className="router-row-name">{r.name}</span>
+                  {r.enabled && <span className="router-row-on">● on</span>}
+                  <span className="router-row-actions">
+                    <button
+                      className="row-icon"
+                      title="Rename"
+                      aria-label="Rename router"
+                      onClick={e => { e.stopPropagation(); renameRouter(r); }}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      className="row-icon"
+                      title="Delete"
+                      aria-label="Delete router"
+                      onClick={e => { e.stopPropagation(); deleteRouter(r); }}
+                    >
+                      ✕
+                    </button>
                   </span>
-                  {r.enabled && <span style={{ fontSize: 9, opacity: 0.7 }}>● on</span>}
                 </div>
               );
             })}
           </div>
-
-          {hasActive && (
-            <div style={{
-              borderTop: "1px solid var(--vscode-sideBarSectionHeader-border)",
-              padding:   "8px 10px",
-              display:   "flex",
-              gap:       6,
-            }}>
-              <button className="btn ghost" style={{ flex: 1, fontSize: 11 }} onClick={renameActive}>Rename</button>
-              <button className="btn ghost" style={{ flex: 1, fontSize: 11 }} onClick={deleteActive}>Delete</button>
-            </div>
-          )}
         </aside>
 
         <div className="canvas-wrap" style={{ flex: 1, position: "relative" }}>
@@ -428,51 +515,83 @@ export default function RouterApp() {
           {!loaded && <div className="canvas-overlay">loading…</div>}
         </div>
 
-        <aside className="router-sidebar">
-          <h3>Test a prompt</h3>
-          <p className="hint">
-            Type an agent task and see which model the active router would pick.
-            The matched path is highlighted on the canvas.
-          </p>
-          <textarea
-            className="test-input"
-            rows={4}
-            placeholder="e.g. Refactor the auth middleware to use the new session storage"
-            value={testInput}
-            onChange={e => setTestInput(e.target.value)}
-            disabled={!hasActive}
-          />
-          <button className="btn primary block" onClick={runTest} disabled={!testInput.trim() || !hasActive}>
-            Test route
-          </button>
-
-          {testResult && (
-            <div className={`test-result ${testResult.model ? "ok" : "warn"}`}>
-              <div className="result-row">
-                <span className="label">Model</span>
-                <span className="value mono">{testResult.model ?? "— no match —"}</span>
-              </div>
-              <div className="result-row">
-                <span className="label">Reason</span>
-                <span className="value">{testResult.reason}</span>
-              </div>
-              <div className="result-row">
-                <span className="label">Path</span>
-                <span className="value mono">{testResult.path.join(" → ")}</span>
-              </div>
-            </div>
+        <aside className={`router-sidebar${testOpen ? "" : " collapsed"}`}>
+          {!testOpen && (
+            <button
+              className="sidebar-toggle vertical"
+              title="Show test panel"
+              onClick={() => setTestOpen(true)}
+            >
+              Test ◂
+            </button>
           )}
+          {testOpen && (
+            <>
+              <div className="sidebar-head">
+                <h3>Test a prompt</h3>
+                <button
+                  className="collapse-x"
+                  title="Hide test panel"
+                  aria-label="Hide test panel"
+                  onClick={() => setTestOpen(false)}
+                >
+                  ▸
+                </button>
+              </div>
+              <textarea
+                className="test-input"
+                rows={2}
+                placeholder="e.g. Refactor the auth middleware…"
+                value={testInput}
+                onChange={e => setTestInput(e.target.value)}
+                disabled={!hasActive}
+              />
+              <button
+                className="btn primary block"
+                onClick={runTest}
+                disabled={!testInput.trim() || !hasActive}
+              >
+                Test route
+              </button>
 
-          <hr className="sep" />
+              {testResult && (
+                <div className={`test-result ${testResult.model ? "ok" : "warn"}`}>
+                  <div className="result-row">
+                    <span className="label">Model</span>
+                    <span className="value mono">{testResult.model ?? "— no match —"}</span>
+                  </div>
+                  <div className="result-row">
+                    <span className="label">Reason</span>
+                    <span className="value">{testResult.reason}</span>
+                  </div>
+                  <div className="result-row">
+                    <span className="label">Path</span>
+                    <span className="value mono">{testResult.path.join(" → ")}</span>
+                  </div>
+                </div>
+              )}
 
-          <h3>How it works</h3>
-          <ol className="how">
-            <li>Each router lives in its own graph. Pick one from the left sidebar to edit, or <strong>+ Add</strong> a new one.</li>
-            <li>The <strong>Input</strong> node receives the agent task.</li>
-            <li>Each <strong>Classifier</strong> route has example phrases. The task is embedded and matched to the closest route.</li>
-            <li>The matched edge leads to a <strong>Model</strong> node — that model handles this task.</li>
-            <li>In the chat panel's model picker, pick this router to use it for agent tasks.</li>
-          </ol>
+              <details style={{ marginTop: 14 }}>
+                <summary style={{
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "var(--vscode-descriptionForeground)",
+                }}>
+                  How it works
+                </summary>
+                <ol className="how" style={{ marginTop: 6 }}>
+                  <li>Each router lives in its own graph. Pick one from the left sidebar, or <strong>+ Add</strong> a new one.</li>
+                  <li>The <strong>Input</strong> node receives the agent task.</li>
+                  <li>Each <strong>Classifier</strong> route has example phrases; the task is embedded and matched to the closest route.</li>
+                  <li>The matched edge leads to a <strong>Model</strong> node — that model handles this task.</li>
+                  <li>In the chat panel's model picker, pick this router to use it for agent tasks.</li>
+                </ol>
+              </details>
+            </>
+          )}
         </aside>
       </div>
     </div>

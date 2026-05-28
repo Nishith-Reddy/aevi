@@ -1,6 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import MetaFooter, { type MessageMeta } from "./MetaFooter";
 
 interface VsCodeApi { postMessage: (msg: unknown) => void; }
 
@@ -9,9 +10,10 @@ interface Props {
   content:  string;
   loading?: boolean;
   vscode:   VsCodeApi | null;
+  meta?:    MessageMeta;
 }
 
-export default function ChatMessage({ role, content, loading, vscode }: Props) {
+export default function ChatMessage({ role, content, loading, vscode, meta }: Props) {
   const safeContent  = content ?? "";
   const confirmIdx   = safeContent.indexOf("__CONFIRM__:");
   const mainContent  = confirmIdx >= 0 ? safeContent.slice(0, confirmIdx) : safeContent;
@@ -91,6 +93,7 @@ export default function ChatMessage({ role, content, loading, vscode }: Props) {
             )}
 
             {loading && <span className="cursor"> ▋</span>}
+            {!loading && meta && <MetaFooter meta={meta} />}
           </>
         )}
       </div>

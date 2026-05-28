@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 import { getBackendUrl } from "./extension";
+import { onModelsChanged, onRoutersChanged } from "./panelEvents";
 
 export class RoutingPanel {
   private static current: RoutingPanel | undefined;
@@ -41,6 +42,9 @@ export class RoutingPanel {
 
     this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
 
+    // When chat settings add/remove a provider or key, refresh the model dropdowns.
+    this.disposables.push(onModelsChanged.event(() => this.pushModels()));
+
     this.panel.webview.onDidReceiveMessage(async (msg) => {
       if (msg.type === "router:list") {
         try {
@@ -75,18 +79,18 @@ export class RoutingPanel {
           });
           const data = await res.json();
           this.panel.webview.postMessage({ type: "router:saved", data });
+          onRoutersChanged.fire();
         } catch {
           this.panel.webview.postMessage({ type: "router:error", message: "Save failed." });
         }
       }
 
-      if (msg.type === "router:add") {
-        const name = (await vscode.window.showInputBox({
-          prompt:       "Name this router",
-          placeHolder:  "e.g. By task complexity",
-          ignoreFocusOut: true,
-        }))?.trim();
-        if (!name) return;
+      if (msg.type === "router:create") {
+        const name = ((msg.name as string) ?? "").trim();
+        if (!name) {
+          this.panel.webview.postMessage({ type: "router:error", message: "Name is required." });
+          return;
+        }
         try {
           const res  = await fetch(`${getBackendUrl()}/api/router/create`, {
             method:  "POST",
@@ -95,6 +99,7 @@ export class RoutingPanel {
           });
           const data = await res.json();
           this.panel.webview.postMessage({ type: "router:created", data });
+          onRoutersChanged.fire();
         } catch {
           this.panel.webview.postMessage({ type: "router:error", message: "Create failed." });
         }
@@ -108,15 +113,27 @@ export class RoutingPanel {
           ignoreFocusOut: true,
         }))?.trim();
         if (!next || next === current) return;
-        const graph = msg.graph ?? {};
         try {
+          // If the webview supplied a graph (the row being renamed is currently
+          // open in the canvas), use it. Otherwise fetch what's on disk so we
+          // don't accidentally blank out its nodes/edges.
+          let graph = msg.graph as Record<string, unknown> | null;
+          if (!graph) {
+            const cur = await fetch(`${getBackendUrl()}/api/router/${encodeURIComponent(msg.id)}`);
+            if (!cur.ok) {
+              this.panel.webview.postMessage({ type: "router:error", message: "Rename failed: router not found." });
+              return;
+            }
+            graph = await cur.json() as Record<string, unknown>;
+          }
           const res  = await fetch(`${getBackendUrl()}/api/router/${encodeURIComponent(msg.id)}`, {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
             body:    JSON.stringify({ ...graph, name: next }),
           });
           const data = await res.json();
-          this.panel.webview.postMessage({ type: "router:saved", data, name: next });
+          this.panel.webview.postMessage({ type: "router:saved", data, id: msg.id, name: next });
+          onRoutersChanged.fire();
         } catch {
           this.panel.webview.postMessage({ type: "router:error", message: "Rename failed." });
         }
@@ -133,6 +150,7 @@ export class RoutingPanel {
         try {
           await fetch(`${getBackendUrl()}/api/router/${encodeURIComponent(msg.id)}`, { method: "DELETE" });
           this.panel.webview.postMessage({ type: "router:deleted", id: msg.id });
+          onRoutersChanged.fire();
         } catch {
           this.panel.webview.postMessage({ type: "router:error", message: "Delete failed." });
         }
@@ -171,6 +189,14 @@ export class RoutingPanel {
       const d = this.disposables.pop();
       if (d) d.dispose();
     }
+  }
+
+  private async pushModels() {
+    try {
+      const res  = await fetch(`${getBackendUrl()}/api/models`);
+      const data = await res.json();
+      this.panel.webview.postMessage({ type: "router:models", data });
+    } catch { /* backend unreachable — webview keeps current state */ }
   }
 
   private getHtml(webview: vscode.Webview): string {

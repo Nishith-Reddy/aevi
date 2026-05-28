@@ -57,8 +57,12 @@ def _resolve_model(model: str) -> str:
     return f"ollama/{model}"
 
 
-async def stream_completion(messages: list[dict], model: str | None = None):
-    """Stream response chunks for any LiteLLM-supported provider."""
+async def stream_completion(messages: list[dict], model: str | None = None, meta_out: dict | None = None):
+    """Stream response chunks for any LiteLLM-supported provider.
+
+    If `meta_out` is provided, it is populated in-place with usage info from the
+    final chunk (`prompt_tokens`, `completion_tokens`, `total_tokens`).
+    """
     mdl = _resolve_model(model or "")
 
     # ollama/ hits /api/generate (no streaming tools); ollama_chat/ hits /api/chat
@@ -74,8 +78,17 @@ async def stream_completion(messages: list[dict], model: str | None = None):
         messages=messages,
         stream=True,
         max_tokens=2048,
+        stream_options={"include_usage": True},
     )
     async for chunk in response:
+        usage = getattr(chunk, "usage", None)
+        if usage and meta_out is not None:
+            meta_out["prompt_tokens"]     = getattr(usage, "prompt_tokens", 0) or 0
+            meta_out["completion_tokens"] = getattr(usage, "completion_tokens", 0) or 0
+            meta_out["total_tokens"]      = getattr(usage, "total_tokens", 0) or 0
+        # Some providers send an empty choices list on the usage-only final chunk
+        if not chunk.choices:
+            continue
         delta = chunk.choices[0].delta.content
         if delta:
             yield delta

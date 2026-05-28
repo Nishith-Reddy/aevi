@@ -130,6 +130,41 @@ def save_router(router_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
+def _starter_graph() -> dict[str, Any]:
+    """Seed a new router with the same starter shape the webview shows by default:
+    Input → Classifier(simple/medium/complex) → 3 Models → Output."""
+    return {
+        "nodes": [
+            {"id": "input-1",      "type": "input",  "position": {"x":  60, "y": 200}, "data": {}},
+            {
+                "id":       "classifier-1",
+                "type":     "classifier",
+                "position": {"x": 320, "y": 160},
+                "data": {
+                    "routes": [
+                        {"label": "simple",  "examples": ["fix typo", "rename variable", "add print statement"]},
+                        {"label": "medium",  "examples": ["refactor this function", "add error handling"]},
+                        {"label": "complex", "examples": ["redesign the architecture", "implement a new feature across files"]},
+                    ],
+                },
+            },
+            {"id": "model-simple",  "type": "model",  "position": {"x": 680, "y":  60}, "data": {"model": ""}},
+            {"id": "model-medium",  "type": "model",  "position": {"x": 680, "y": 220}, "data": {"model": ""}},
+            {"id": "model-complex", "type": "model",  "position": {"x": 680, "y": 380}, "data": {"model": ""}},
+            {"id": "output-1",      "type": "output", "position": {"x": 980, "y": 220}, "data": {}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "input-1",      "target": "classifier-1"},
+            {"id": "e2", "source": "classifier-1", "sourceHandle": "simple",  "target": "model-simple"},
+            {"id": "e3", "source": "classifier-1", "sourceHandle": "medium",  "target": "model-medium"},
+            {"id": "e4", "source": "classifier-1", "sourceHandle": "complex", "target": "model-complex"},
+            {"id": "e5", "source": "model-simple",  "target": "output-1"},
+            {"id": "e6", "source": "model-medium",  "target": "output-1"},
+            {"id": "e7", "source": "model-complex", "target": "output-1"},
+        ],
+    }
+
+
 def create_router(name: str) -> dict[str, Any]:
     base = _slug(name)
     candidate = base
@@ -137,7 +172,8 @@ def create_router(name: str) -> dict[str, Any]:
     while _router_path(candidate).exists():
         i += 1
         candidate = f"{base}-{i}"
-    return save_router(candidate, {"name": name, "enabled": False, "nodes": [], "edges": []})
+    starter = _starter_graph()
+    return save_router(candidate, {"name": name, "enabled": False, **starter})
 
 
 def delete_router(router_id: str) -> bool:

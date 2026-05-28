@@ -109,12 +109,21 @@ html, body, #root {
 }
 
 .router-sidebar {
-  width: 320px;
+  width: 260px;
   flex-shrink: 0;
   border-left: 1px solid var(--vscode-sideBarSectionHeader-border);
   background: var(--vscode-sideBar-background);
-  padding: 14px 16px;
+  padding: 10px 12px;
   overflow-y: auto;
+  transition: width 0.15s;
+}
+.router-sidebar.collapsed {
+  width: 32px;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 .router-sidebar h3 {
   margin: 0 0 6px;
@@ -124,6 +133,40 @@ html, body, #root {
   letter-spacing: 0.08em;
   color: var(--vscode-descriptionForeground);
 }
+.sidebar-toggle {
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  padding: 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  width: 100%;
+}
+.sidebar-toggle.vertical {
+  writing-mode: vertical-rl;
+  margin-top: 10px;
+}
+.sidebar-toggle:hover { color: var(--vscode-foreground); }
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.sidebar-head h3 { margin: 0; }
+.collapse-x {
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 12px;
+  border-radius: 3px;
+}
+.collapse-x:hover { background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,0.2)); }
 .hint {
   font-size: 11px;
   color: var(--vscode-descriptionForeground);
@@ -175,7 +218,78 @@ html, body, #root {
 .result-row .value { word-break: break-all; }
 .mono { font-family: var(--vscode-editor-font-family); }
 
+/* ── Router list rows ───────────────────────────────────────────────────── */
+.router-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 10px 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+}
+.router-row:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+.router-row.active {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+.router-row-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.router-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.router-row:hover .router-row-actions,
+.router-row.active .router-row-actions {
+  opacity: 1;
+}
+.row-icon {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.row-icon:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,0.2));
+}
+.router-row-on {
+  font-size: 9px;
+  opacity: 0.7;
+  margin-right: 2px;
+}
+
 /* ── React Flow node styling ────────────────────────────────────────────── */
+/* React Flow's built-in `input`/`output` types ship a default white card.
+   We render our own .rf-node inside, so neutralize the outer wrapper. */
+.react-flow__node-input,
+.react-flow__node-output,
+.react-flow__node-classifier,
+.react-flow__node-model {
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: auto;
+  box-shadow: none;
+  border-radius: 0;
+}
+
 .rf-node {
   background: var(--vscode-sideBar-background);
   border: 1px solid var(--vscode-input-border);
@@ -185,6 +299,30 @@ html, body, #root {
   font-size: 11px;
   color: var(--vscode-foreground);
   box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+  position: relative;
+}
+.node-x {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: transparent;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+.rf-node:hover .node-x,
+.react-flow__node.selected .node-x {
+  opacity: 1;
+}
+.node-x:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,0.2));
+  color: var(--vscode-errorForeground, var(--vscode-foreground));
 }
 .react-flow__node.selected .rf-node {
   border-color: var(--vscode-focusBorder);

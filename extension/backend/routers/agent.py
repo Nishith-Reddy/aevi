@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 import asyncio
+import time
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -330,6 +331,18 @@ def stream_event(event: str, data: dict) -> str:
     return json.dumps({"event": event, **data}) + "\n"
 
 
+def done_event(summary: str, start: float, usage: dict) -> str:
+    return stream_event("done", {
+        "summary": summary,
+        "usage": {
+            "prompt_tokens":     usage.get("prompt_tokens", 0),
+            "completion_tokens": usage.get("completion_tokens", 0),
+            "total_tokens":      usage.get("total_tokens", 0),
+        },
+        "elapsed_ms": int((time.monotonic() - start) * 1000),
+    })
+
+
 def get_model(requested: str | None) -> str:
     from routers.models import get_active_model
     m = requested or get_active_model()
@@ -419,7 +432,14 @@ async def _call_llm(model: str, messages: list[dict]) -> dict:
             "function": {"name": tc.function.name, "arguments": args},
         })
 
-    return {"role": "assistant", "content": content, "tool_calls": tool_calls}
+    raw_usage = getattr(response, "usage", None)
+    usage = {
+        "prompt_tokens":     (getattr(raw_usage, "prompt_tokens", 0) or 0) if raw_usage else 0,
+        "completion_tokens": (getattr(raw_usage, "completion_tokens", 0) or 0) if raw_usage else 0,
+        "total_tokens":      (getattr(raw_usage, "total_tokens", 0) or 0) if raw_usage else 0,
+    }
+
+    return {"role": "assistant", "content": content, "tool_calls": tool_calls, "usage": usage}
 
 
 async def _call_llm_with_retry(model: str, messages: list[dict], max_retries: int = 3) -> dict:
@@ -523,6 +543,16 @@ async def agent(req: AgentRequest):
     raw_task = req.task.strip()
     print(f"[agent] is_conversational({raw_task!r}) = {is_conversational(raw_task)}")
 
+    # Per-turn usage/timing — captured here so every `done` event includes it,
+    # regardless of which early-exit branch the request takes.
+    start_time = time.monotonic()
+    usage_total = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+    def add_usage(u: dict) -> None:
+        usage_total["prompt_tokens"]     += u.get("prompt_tokens", 0) or 0
+        usage_total["completion_tokens"] += u.get("completion_tokens", 0) or 0
+        usage_total["total_tokens"]      += u.get("total_tokens", 0) or 0
+
     # If the UI sent a router/<id> pseudo-model as the active model, resolve it
     # via the named routing graph now so the rest of the flow operates on a real
     # model id.
@@ -548,7 +578,7 @@ async def agent(req: AgentRequest):
                     "message": f"Semantic Router '{router_id or requested_model}' not found. "
                                "Open the routing panel to create or pick one."
                 })
-                yield stream_event("done", {"summary": "Router not found."})
+                yield done_event("Router not found.", start_time, usage_total)
             return StreamingResponse(missing_router_reply(), media_type="application/x-ndjson")
 
         if not graph.get("nodes"):
@@ -557,7 +587,7 @@ async def agent(req: AgentRequest):
                     "message": f"Router '{graph.get('name', router_id)}' has no nodes. "
                                "Open the routing panel and add some, or pick a model directly."
                 })
-                yield stream_event("done", {"summary": "Empty routing graph."})
+                yield done_event("Empty routing graph.", start_time, usage_total)
             return StreamingResponse(empty_graph_reply(), media_type="application/x-ndjson")
 
         # Picking a router from the dropdown is itself the opt-in; the
@@ -571,7 +601,7 @@ async def agent(req: AgentRequest):
                 yield stream_event("error", {
                     "message": f"Router '{graph.get('name', router_id)}' could not pick a model: {result.get('reason', 'unknown')}."
                 })
-                yield stream_event("done", {"summary": "Routing failed."})
+                yield done_event("Routing failed.", start_time, usage_total)
             return StreamingResponse(no_match_reply(), media_type="application/x-ndjson")
 
         routing_info = {**result, "router_id": router_id, "router_name": graph.get("name", router_id)}
@@ -586,12 +616,13 @@ async def agent(req: AgentRequest):
                     {"role": "system", "content": CONVERSATIONAL_PROMPT},
                     {"role": "user",   "content": req.task},
                 ])
+                add_usage(msg.get("usage") or {})
                 content = re.sub(r"<think>.*?</think>", "", msg["content"], flags=re.DOTALL).strip()
                 yield stream_event("text", {"content": content})
-                yield stream_event("done", {"summary": ""})
+                yield done_event("", start_time, usage_total)
             except Exception as e:
                 yield stream_event("error", {"message": str(e)})
-                yield stream_event("done", {"summary": "Error."})
+                yield done_event("Error.", start_time, usage_total)
 
         return StreamingResponse(reply(), media_type="application/x-ndjson")
 
@@ -609,7 +640,7 @@ async def agent(req: AgentRequest):
                 "message": "Semantic Router did not resolve to a real model. "
                            "Check the routing graph in the routing panel."
             })
-            yield stream_event("done", {"summary": "Unresolved routing."})
+            yield done_event("Unresolved routing.", start_time, usage_total)
         return StreamingResponse(unresolved_router_reply(), media_type="application/x-ndjson")
 
     if req.resume_state:
@@ -636,7 +667,7 @@ async def agent(req: AgentRequest):
                 yield stream_event("text", {
                     "content": f"⚠️ `{model}` does not support tool calling.\n\nPlease switch to a model that supports tools using the model picker."
                 })
-                yield stream_event("done", {"summary": "Model does not support tools."})
+                yield done_event("Model does not support tools.", start_time, usage_total)
                 return
 
             plan_confirmed   = bool(req.resume_state)
@@ -646,6 +677,7 @@ async def agent(req: AgentRequest):
                 print(f"\n[agent] === STEP {step} ===")
 
                 message = await _call_llm_with_retry(model, messages)
+                add_usage(message.get("usage") or {})
 
                 print(f"\n========== STEP {step} RAW LLM OUTPUT ==========")
                 print(message.get("content"))
@@ -700,7 +732,7 @@ async def agent(req: AgentRequest):
                                 "content": "You provided code in plain text. You MUST use `insert_lines`, `edit_lines`, `edit_file`, or `write_file` to apply changes. Call the correct tool now."
                             })
                             continue
-                        yield stream_event("done", {"summary": ""})
+                        yield done_event("", start_time, usage_total)
                         break
 
                     if not content.strip() and not thinking:
@@ -719,7 +751,7 @@ async def agent(req: AgentRequest):
                         })
                         continue
 
-                    yield stream_event("done", {"summary": ""})
+                    yield done_event("", start_time, usage_total)
                     break
 
                 if content:
@@ -812,7 +844,7 @@ async def agent(req: AgentRequest):
                                 "role": "tool", "content": block_msg,
                                 **({"tool_call_id": tc["id"]} if tc.get("id") else {}),
                             })
-                            yield stream_event("done", {"summary": ""})
+                            yield done_event("", start_time, usage_total)
                             return
 
                     if tool_name == "update_plan_step" and not req.resume_state:
@@ -922,7 +954,7 @@ async def agent(req: AgentRequest):
                             yield stream_event("tool_result", {"tool": tool_name, "result": result[:500]})
                             messages.append({"role": "tool", "content": str(result),
                                              **({"tool_call_id": tc["id"]} if tc.get("id") else {})})
-                            yield stream_event("done", {"summary": ""})
+                            yield done_event("", start_time, usage_total)
                             return
 
                     if tool_name == "read_file" and "start_line" not in tool_args and "end_line" not in tool_args and not result.startswith("[Error"):
@@ -941,25 +973,25 @@ async def agent(req: AgentRequest):
                         })
 
             else:
-                yield stream_event("done", {"summary": "Reached maximum steps."})
+                yield done_event("Reached maximum steps.", start_time, usage_total)
 
         except litellm.RateLimitError as e:
             err_str = str(e)
             print(f"[agent] Rate limit: {err_str}")
             yield stream_event("text", {"content": f"\n\n{_friendly_limit_message(err_str)}\n\n_{err_str[:300]}_"})
-            yield stream_event("done", {"summary": "Rate limited."})
+            yield done_event("Rate limited.", start_time, usage_total)
         except litellm.AuthenticationError as e:
             print(f"[agent] Auth error: {e}")
             yield stream_event("text", {"content": f"\n\n⚠️ **Authentication failed.** Check your API key in Settings.\n\n_{str(e)[:200]}_"})
-            yield stream_event("done", {"summary": "Auth error."})
+            yield done_event("Auth error.", start_time, usage_total)
         except litellm.BadRequestError as e:
             print(f"[agent] Bad request: {e}")
             yield stream_event("text", {"content": f"\n\n⚠️ **Bad request error.**\n\n_{str(e)[:300]}_"})
-            yield stream_event("done", {"summary": "Bad request."})
+            yield done_event("Bad request.", start_time, usage_total)
         except Exception as e:
             print(f"[agent] EXCEPTION: {e}")
             yield stream_event("error", {"message": str(e)})
-            yield stream_event("done", {"summary": "Error."})
+            yield done_event("Error.", start_time, usage_total)
 
     return StreamingResponse(run(), media_type="application/x-ndjson")
 
