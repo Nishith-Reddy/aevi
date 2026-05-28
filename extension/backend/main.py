@@ -2,13 +2,13 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import completion, chat, agent, models
+from routers import completion, chat, agent, models, router as router_routes
 from services.rag import index_workspace, retrieve_context
 from services.rag import remove_file_from_index
 from config import settings
 
 app = FastAPI(
-    title="Telivi",
+    title="aevi",
     description="AI coding assistant backend — powers VS Code extension and CLI",
     version="0.1.0",
 )
@@ -24,6 +24,7 @@ app.include_router(completion.router, prefix="/api", tags=["completion"])
 app.include_router(chat.router,       prefix="/api", tags=["chat"])
 app.include_router(agent.router,      prefix="/api", tags=["agent"])
 app.include_router(models.router,     prefix="/api", tags=["models"])
+app.include_router(router_routes.router, prefix="/api", tags=["router"])
 
 
 @app.get("/health")
@@ -121,35 +122,6 @@ async def set_keys(body: dict):
     return {"status": "ok"}
 
 
-@app.get("/api/gemini/models")
-async def list_gemini_models():
-    """
-    Fetch available Gemini models for the stored API key.
-    Returns only generative text models that support generateContent.
-    """
-    import httpx
-    key = settings.gemini_api_key
-    if not key:
-        return {"models": [], "error": "No Gemini API key configured"}
-    try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            r = await client.get(
-                "https://generativelanguage.googleapis.com/v1beta/models",
-                params={"key": key},
-            )
-            r.raise_for_status()
-            data = r.json()
-            models = [
-                m["name"].replace("models/", "")
-                for m in data.get("models", [])
-                if "generateContent" in m.get("supportedGenerationMethods", [])
-                and "gemini" in m.get("name", "")
-            ]
-            return {"models": models}
-    except Exception as e:
-        return {"models": [], "error": str(e)}
-
-
 @app.post("/api/index-file")
 async def index_file(body: dict):
     """
@@ -205,17 +177,6 @@ async def index(body: dict):
         return {"error": "workspace_path is required"}
     count = await index_workspace(workspace)
     return {"status": "indexed", "workspace": workspace, "indexed_chunks": count}
-
-
-@app.post("/api/debug/retrieve")
-async def debug_retrieve(body: dict):
-    query     = body.get("query", "")
-    workspace = body.get("workspace_path", "")
-    if not query or not workspace:
-        return {"error": "query and workspace_path are required"}
-    context = await retrieve_context(query, workspace)
-    chunks  = context.split("\n\n---\n\n") if context else []
-    return {"query": query, "chunks_found": len(chunks), "chunks": chunks}
 
 
 @app.post("/api/retrieve")

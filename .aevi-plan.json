@@ -1,0 +1,11 @@
+{
+  "task": "add a comment \"testing\" in line 100",
+  "steps": [
+    {
+      "desc": "Insert comment \"// testing\" after line 100 in App.tsx",
+      "file": "/Users/nishithreddy/projects/aevi/webview-ui/src/App.tsx",
+      "id": 1,
+      "status": "pending"
+    }
+  ]
+}

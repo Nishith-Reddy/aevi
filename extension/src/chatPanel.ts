@@ -100,7 +100,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
       enableScripts: true,
       localResourceRoots: [
         vscode.Uri.file(
-          path.join(this.context.extensionPath, "webview_dist")
+          path.join(this.context.extensionPath, "..", "webview-ui", "dist")
         ),
       ],
     };
@@ -497,7 +497,7 @@ export class ChatPanel implements vscode.WebviewViewProvider {
   }
 
   private getHtml(webview: vscode.Webview): string {
-    const distPath  = path.join(this.context.extensionPath, "webview_dist");
+    const distPath  = path.join(this.context.extensionPath, "..", "webview-ui", "dist");
     const indexPath = path.join(distPath, "index.html");
     let html        = fs.readFileSync(indexPath, "utf8");
 

@@ -6,6 +6,7 @@ import * as os from "os";
 import { ChildProcess, spawn, execSync, spawnSync } from "child_process";
 import { ChatPanel } from "./chatPanel";
 import { CompletionProvider } from "./completionProvider";
+import { RoutingPanel } from "./routingPanel";
 
 export function getBackendUrl(): string {
   return vscode.workspace
@@ -213,6 +214,10 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(
         current ? "Aevi: Inline completions disabled." : "Aevi: Inline completions enabled (Beta)."
       );
+    }),
+
+    vscode.commands.registerCommand("aevi.openRouter", () => {
+      RoutingPanel.show(context);
     }),
 
     vscode.commands.registerCommand("aevi.reinstallBackend", async () => {

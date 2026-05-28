@@ -2,6 +2,7 @@ import httpx
 import asyncio
 from fastapi import APIRouter
 from config import settings
+from services.router import list_routers
 
 router = APIRouter()
 
@@ -208,9 +209,10 @@ async def list_models():
         _active_model  = all_available_names[0]
         current_active = _active_model
     return {
-        "active": current_active,
-        "local":  local_models,
-        "api":    api_models,
+        "active":  current_active,
+        "local":   local_models,
+        "api":     api_models,
+        "routers": list_routers(),
     }
 
 

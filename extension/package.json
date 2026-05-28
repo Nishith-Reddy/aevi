@@ -39,8 +39,22 @@
       {
         "command": "aevi.reinstallBackend",
         "title": "Aevi: Reinstall Backend"
+      },
+      {
+        "command": "aevi.openRouter",
+        "title": "Aevi: Open Semantic Router",
+        "icon": "$(type-hierarchy-sub)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "aevi.openRouter",
+          "when": "view == aevi.chatView",
+          "group": "navigation"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {

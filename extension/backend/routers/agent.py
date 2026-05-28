@@ -9,12 +9,22 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from services.tools import read_file, write_file, edit_file, edit_lines, insert_lines, file_outline, list_dir, run_command, goto_line, find_in_file, write_plan, update_plan_step, cleanup_plan
 from services.llm import _resolve_model
+from services.router import list_routers, load_router, route as semantic_route
 import litellm
 
 router = APIRouter()
 
 KNOWN_PREFIXES   = {"anthropic", "openai", "groq", "gemini", "ollama", "ollama_chat", "hosted_vllm", "meta-llama"}
 ALWAYS_SUPPORTED = {"anthropic", "openai", "groq", "gemini"}
+ROUTER_PREFIX    = "router/"
+
+
+def _is_router_model(model: str | None) -> bool:
+    return bool(model) and model.startswith(ROUTER_PREFIX)
+
+
+def _router_id_from_model(model: str) -> str:
+    return model[len(ROUTER_PREFIX):]
 
 
 class AgentRequest(BaseModel):
@@ -513,6 +523,60 @@ async def agent(req: AgentRequest):
     raw_task = req.task.strip()
     print(f"[agent] is_conversational({raw_task!r}) = {is_conversational(raw_task)}")
 
+    # If the UI sent a router/<id> pseudo-model as the active model, resolve it
+    # via the named routing graph now so the rest of the flow operates on a real
+    # model id.
+    routing_info: dict | None = None
+    requested_model = req.model
+    if requested_model is None:
+        from routers.models import get_active_model
+        requested_model = get_active_model()
+
+    if not req.resume_state and _is_router_model(requested_model):
+        router_id = _router_id_from_model(requested_model)
+
+        # Legacy alias: "router/semantic" used to mean "the one global router";
+        # map it to the first available router so old saved state still works.
+        if router_id in ("", "semantic"):
+            available = list_routers()
+            router_id = available[0]["id"] if available else ""
+
+        graph = load_router(router_id) if router_id else None
+        if graph is None:
+            async def missing_router_reply():
+                yield stream_event("error", {
+                    "message": f"Semantic Router '{router_id or requested_model}' not found. "
+                               "Open the routing panel to create or pick one."
+                })
+                yield stream_event("done", {"summary": "Router not found."})
+            return StreamingResponse(missing_router_reply(), media_type="application/x-ndjson")
+
+        if not graph.get("nodes"):
+            async def empty_graph_reply():
+                yield stream_event("error", {
+                    "message": f"Router '{graph.get('name', router_id)}' has no nodes. "
+                               "Open the routing panel and add some, or pick a model directly."
+                })
+                yield stream_event("done", {"summary": "Empty routing graph."})
+            return StreamingResponse(empty_graph_reply(), media_type="application/x-ndjson")
+
+        # Picking a router from the dropdown is itself the opt-in; the
+        # graph's `enabled` flag (toggled inside the routing panel) is only used
+        # for the implicit fallback path further down.
+        graph = {**graph, "enabled": True}
+
+        result = semantic_route(req.task, graph)
+        if not result.get("model"):
+            async def no_match_reply():
+                yield stream_event("error", {
+                    "message": f"Router '{graph.get('name', router_id)}' could not pick a model: {result.get('reason', 'unknown')}."
+                })
+                yield stream_event("done", {"summary": "Routing failed."})
+            return StreamingResponse(no_match_reply(), media_type="application/x-ndjson")
+
+        routing_info = {**result, "router_id": router_id, "router_name": graph.get("name", router_id)}
+        req.model    = result["model"]
+
     if not req.resume_state and is_conversational(raw_task):
         model = get_model(req.model)
 
@@ -531,7 +595,22 @@ async def agent(req: AgentRequest):
 
         return StreamingResponse(reply(), media_type="application/x-ndjson")
 
+    # On resume, the routed model lives in resume_state — the extension does not
+    # re-send `req.model` between confirm/apply cycles, so falling back to the
+    # global active model would hand a router/<id> sentinel to litellm.
+    if req.resume_state and not req.model:
+        req.model = req.resume_state.get("model")
+
     model = get_model(req.model)
+
+    if _is_router_model(model):
+        async def unresolved_router_reply():
+            yield stream_event("error", {
+                "message": "Semantic Router did not resolve to a real model. "
+                           "Check the routing graph in the routing panel."
+            })
+            yield stream_event("done", {"summary": "Unresolved routing."})
+        return StreamingResponse(unresolved_router_reply(), media_type="application/x-ndjson")
 
     if req.resume_state:
         messages   = req.resume_state["messages"]
@@ -546,6 +625,12 @@ async def agent(req: AgentRequest):
 
     async def run():
         try:
+            if routing_info:
+                yield stream_event("routed", {
+                    "model":  routing_info.get("model"),
+                    "path":   routing_info.get("path", []),
+                    "reason": routing_info.get("reason", ""),
+                })
             has_tools = await supports_tools(model)
             if not has_tools:
                 yield stream_event("text", {
@@ -807,7 +892,11 @@ async def agent(req: AgentRequest):
                             "content_to_write": content_to_write,
                             "diff":             diff,
                             "fname":            fname,
-                            "resume_state":     {"messages": messages, "file_cache": file_cache},
+                            "resume_state":     {
+                                "messages":   messages,
+                                "file_cache": file_cache,
+                                "model":      model,
+                            },
                         })
                         return
 
