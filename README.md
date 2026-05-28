@@ -3,6 +3,7 @@
 [![Visual Studio Marketplace Version](https://vsmarketplacebadges.dev/version-short/NishithReddyP.aevi.svg)](https://marketplace.visualstudio.com/items?itemName=NishithReddyP.aevi)
 [![Visual Studio Marketplace Installs](https://vsmarketplacebadges.dev/installs-short/NishithReddyP.aevi.svg)](https://marketplace.visualstudio.com/items?itemName=NishithReddyP.aevi)
 [![Open VSX Version](https://img.shields.io/open-vsx/v/NishithReddyP/aevi?style=flat-square&color=blue)](https://open-vsx.org/extension/NishithReddyP/aevi)
+[![Open VSX Downloads](https://img.shields.io/open-vsx/dt/NishithReddyP/aevi?style=flat-square&color=blue&label=Open%20VSX%20Installs)](https://open-vsx.org/extension/NishithReddyP/aevi)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 **Aevi** is a powerful, flexible AI coding assistant extension for Visual Studio Code. Powered by a FastAPI and LiteLLM backend, it seamlessly bridges local and cloud-based Large Language Models (LLMs) to help you write, debug, and refactor code directly in your editor.
